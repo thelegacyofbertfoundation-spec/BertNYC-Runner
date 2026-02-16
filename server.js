@@ -27,23 +27,17 @@ const app = express();
 // MIDDLEWARE
 // ══════════════════════════════════════════
 
-// Security headers
-app.use(helmet({
-  contentSecurityPolicy: false,
-}));
+app.use(helmet({ contentSecurityPolicy: false }));
 
-// CORS
 app.use(cors({
   origin: process.env.FRONTEND_URL || '*',
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Telegram-Data'],
 }));
 
-// Body parsing
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60000,
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
@@ -53,11 +47,10 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// Serve static frontend files
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ══════════════════════════════════════════
-// HEALTH CHECK (no auth required)
+// HEALTH CHECK
 // ══════════════════════════════════════════
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -69,20 +62,15 @@ app.get('/api/health', (req, res) => {
 });
 
 // ══════════════════════════════════════════
-// API ROUTES (auth required)
+// API ROUTES
 // ══════════════════════════════════════════
 app.use('/api/user', authMiddleware, userRoutes);
 app.use('/api/game', authMiddleware, gameRoutes);
 app.use('/api/shop', authMiddleware, shopRoutes);
 app.use('/api/leaderboard', authMiddleware, leaderboardRoutes);
 app.use('/api/ads', authMiddleware, adsRoutes);
-
-// Ad network server-to-server callback
 app.post('/api/ads/server-callback', adsRoutes);
 
-// ══════════════════════════════════════════
-// CATCH-ALL: Serve frontend
-// ══════════════════════════════════════════
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public/index.html'));
 });
@@ -94,35 +82,7 @@ async function start() {
   // 1. Initialize database
   initDatabase();
 
-  // 2. Create and start Telegram bot
-  const BOT_TOKEN = process.env.BOT_TOKEN;
-  if (!BOT_TOKEN || BOT_TOKEN === 'your_bot_token_here') {
-    console.warn('⚠️  BOT_TOKEN not set. Bot features disabled. Set it in .env');
-  } else {
-    try {
-      const bot = createBot(BOT_TOKEN);
-      app.set('bot', bot);
-
-      if (process.env.NODE_ENV === 'production' && process.env.WEBHOOK_URL) {
-        const webhookPath = `/bot${BOT_TOKEN.split(':')[0]}`;
-        app.post(webhookPath, express.json(), (req, res) => {
-          bot.handleUpdate(req.body);
-          res.sendStatus(200);
-        });
-        await bot.api.setWebhook(`${process.env.WEBHOOK_URL}${webhookPath}`);
-        console.log('🤖 Bot running in webhook mode');
-      } else {
-        bot.start({
-          onStart: () => console.log('🤖 Bot running in polling mode'),
-        });
-      }
-    } catch (err) {
-      console.error('❌ Bot startup error:', err.message);
-      console.warn('   Continuing without bot. Check your BOT_TOKEN.');
-    }
-  }
-
-  // 3. Start Express server
+  // 2. Start Express FIRST (so the API is always available)
   app.listen(PORT, () => {
     console.log(`
 ╔══════════════════════════════════════════╗
@@ -134,7 +94,56 @@ async function start() {
 ╚══════════════════════════════════════════╝
     `);
   });
+
+  // 3. Start bot AFTER server is listening (so crashes don't kill the API)
+  const BOT_TOKEN = process.env.BOT_TOKEN;
+  if (!BOT_TOKEN || BOT_TOKEN === 'your_bot_token_here') {
+    console.warn('⚠️  BOT_TOKEN not set. Bot features disabled.');
+    return;
+  }
+
+  try {
+    const bot = createBot(BOT_TOKEN);
+    app.set('bot', bot);
+
+    // PRODUCTION: Always use webhooks (Railway gives us a public URL)
+    const RAILWAY_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
+      || process.env.FRONTEND_URL 
+      || process.env.WEBHOOK_URL;
+
+    if (process.env.NODE_ENV === 'production' && RAILWAY_URL) {
+      // Clean the URL - ensure https:// prefix
+      let webhookBase = RAILWAY_URL;
+      if (!webhookBase.startsWith('http')) webhookBase = `https://${webhookBase}`;
+      
+      const webhookPath = `/bot-webhook-${BOT_TOKEN.split(':')[0]}`;
+      
+      // Register webhook route BEFORE setting webhook
+      app.post(webhookPath, (req, res) => {
+        bot.handleUpdate(req.body);
+        res.sendStatus(200);
+      });
+
+      await bot.api.setWebhook(`${webhookBase}${webhookPath}`);
+      console.log(`🤖 Bot running in webhook mode`);
+      console.log(`   Webhook: ${webhookBase}${webhookPath}`);
+    } else {
+      // DEVELOPMENT: Use polling
+      bot.start({
+        onStart: () => console.log('🤖 Bot running in polling mode'),
+      });
+    }
+  } catch (err) {
+    // Bot error should NOT crash the server
+    console.error('❌ Bot startup error:', err.message);
+    console.warn('   API still running. Bot features disabled.');
+  }
 }
+
+// Catch unhandled rejections so bot errors don't crash the process
+process.on('unhandledRejection', (err) => {
+  console.error('⚠️ Unhandled rejection (non-fatal):', err.message);
+});
 
 start().catch(err => {
   console.error('Fatal startup error:', err);

@@ -5,10 +5,9 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../data/bert-runner.db');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'data/bert-runner.db');
 
 function initDatabase() {
-  // Ensure data directory exists
   const dir = path.dirname(DB_PATH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
@@ -16,7 +15,6 @@ function initDatabase() {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
 
-  // ── USERS ──
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       telegram_id    INTEGER PRIMARY KEY,
@@ -38,7 +36,6 @@ function initDatabase() {
     );
   `);
 
-  // ── SCORES (every game session) ──
   db.exec(`
     CREATE TABLE IF NOT EXISTS scores (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,7 +57,6 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_scores_score ON scores(score DESC);
   `);
 
-  // ── PURCHASES / TRANSACTIONS ──
   db.exec(`
     CREATE TABLE IF NOT EXISTS transactions (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,7 +71,6 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_tx_telegram_id ON transactions(telegram_id);
   `);
 
-  // ── OWNED SKINS ──
   db.exec(`
     CREATE TABLE IF NOT EXISTS owned_skins (
       telegram_id    INTEGER NOT NULL,
@@ -86,7 +81,6 @@ function initDatabase() {
     );
   `);
 
-  // ── POWER-UPS INVENTORY ──
   db.exec(`
     CREATE TABLE IF NOT EXISTS powerups (
       telegram_id    INTEGER NOT NULL,
@@ -97,7 +91,6 @@ function initDatabase() {
     );
   `);
 
-  // ── AD REWARD LOG (anti-abuse) ──
   db.exec(`
     CREATE TABLE IF NOT EXISTS ad_rewards (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -114,9 +107,8 @@ function initDatabase() {
   db.close();
 }
 
-// Run directly
 if (require.main === module) {
-  require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+  require('dotenv').config();
   initDatabase();
 }
 

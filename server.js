@@ -92,7 +92,7 @@ async function start() {
   }
 
   try {
-    const bot = createBot(BOT_TOKEN);
+    const bot = await createBot(BOT_TOKEN);
     app.set('bot', bot);
 
     const RAILWAY_URL = process.env.RAILWAY_PUBLIC_DOMAIN 

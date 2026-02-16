@@ -83,7 +83,7 @@ async function start() {
   initDatabase();
 
   // 2. Start Express FIRST (so the API is always available)
-  app.listen(PORT, () => {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`
 ╔══════════════════════════════════════════╗
 ║      🐾 BERT RUNNER NYC - BACKEND 🐾     ║

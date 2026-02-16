@@ -6,7 +6,7 @@ const { Bot, InlineKeyboard } = require('grammy');
 const { getDb } = require('./connection');
 const { SHOP_ITEMS, deliverItem } = require('./shop');
 
-function createBot(token) {
+async function createBot(token) {
   const bot = new Bot(token);
 
   bot.command('start', async (ctx) => {
@@ -146,6 +146,10 @@ function createBot(token) {
   });
 
   bot.catch((err) => { console.error('Bot error:', err); });
+
+  // Initialize bot info before returning
+  await bot.init();
+
   return bot;
 }
 

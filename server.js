@@ -22,7 +22,6 @@ const adsRoutes = require('./ads');
 const PORT = process.env.PORT || 3000;
 const app = express();
 
-// CRITICAL: Railway runs behind a proxy. Express must know this.
 app.set('trust proxy', 1);
 
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -53,7 +52,7 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     game: 'Bert Runner NYC',
-    version: '1.0.1',
+    version: '1.0.2',
     timestamp: new Date().toISOString(),
   });
 });
@@ -104,8 +103,16 @@ async function start() {
       if (!webhookBase.startsWith('http')) webhookBase = `https://${webhookBase}`;
       const webhookPath = `/bot-webhook-${BOT_TOKEN.split(':')[0]}`;
 
-      app.post(webhookPath, (req, res) => {
-        bot.handleUpdate(req.body);
+      // Webhook handler with full error logging
+      app.post(webhookPath, async (req, res) => {
+        try {
+          console.log('📩 Webhook received:', JSON.stringify(req.body).substring(0, 200));
+          await bot.handleUpdate(req.body);
+          console.log('✅ Update handled successfully');
+        } catch (err) {
+          console.error('❌ Webhook handleUpdate error:', err.message);
+          console.error(err.stack);
+        }
         res.sendStatus(200);
       });
 
@@ -117,12 +124,14 @@ async function start() {
     }
   } catch (err) {
     console.error('❌ Bot startup error:', err.message);
+    console.error(err.stack);
     console.warn('   API still running. Bot features disabled.');
   }
 }
 
 process.on('unhandledRejection', (err) => {
   console.error('⚠️ Unhandled rejection (non-fatal):', err.message);
+  console.error(err.stack);
 });
 
 start().catch(err => {

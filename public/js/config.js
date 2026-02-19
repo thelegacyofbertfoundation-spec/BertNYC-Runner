@@ -3,47 +3,27 @@
 // =============================================
 
 const CONFIG = {
-  // Energy System
   MAX_ENERGY: 5,
-  ENERGY_REGEN_MS: 20 * 60 * 1000, // 20 min per energy
+  ENERGY_REGEN_MS: 20 * 60 * 1000,
 
-  // Physics
-  GRAVITY: 0.018,
-  JUMP_FORCE: 0.35,
-  JUMP_DURATION: 30, // frames
+  GRAVITY: 0.008,
+  JUMP_FORCE: 0.18,
 
-  // Speed
-  INITIAL_SPEED: 0.06,
-  MAX_SPEED: 0.18,
-  SPEED_INCREMENT: 0.000008,
+  INITIAL_SPEED: 1.2,
+  MAX_SPEED: 4.0,
+  SPEED_INCREMENT: 0.0003,
 
-  // World
   LANE_COUNT: 3,
-  LANE_WIDTH: 2.4,
-  ROAD_LENGTH: 200,     // how far road renders
-  DRAW_DISTANCE: 80,    // obstacle/coin visible distance
-  PLAYER_Z: 5,          // player distance from camera
+  LANE_WIDTH: 80,       // pixels at base of screen
+  PLAYER_BASE_Y: 0.78,  // player vertical position (% of screen)
 
-  // Camera
-  CAMERA_HEIGHT: 3.0,
-  CAMERA_FOV: 75,
-
-  // Spawning
-  OBSTACLE_MIN_GAP: 18,
-  OBSTACLE_MAX_GAP: 35,
-  COIN_SPAWN_RATE: 0.025,    // chance per frame
+  OBSTACLE_MIN_GAP: 60,
+  OBSTACLE_MAX_GAP: 120,
   COIN_GROUP_SIZE: 5,
 
-  // Collision
-  PLAYER_RADIUS: 0.5,
-  OBSTACLE_RADIUS: 0.7,
-  COIN_RADIUS: 0.6,
-
-  // Scoring
   COIN_VALUE: 1,
   SCORE_PER_FRAME: 1,
 
-  // Skins
   SKINS: [
     { id: 'default', name: 'Classic Bert', colors: ['#F4A460','#D2691E','#8B4513'], price: 0, desc: 'The OG fluffy boy' },
     { id: 'golden', name: 'Golden Bert', colors: ['#FFD700','#FFA500','#B8860B'], price: 50, desc: 'Dripping in gold' },
@@ -55,17 +35,15 @@ const CONFIG = {
     { id: 'nyc', name: 'NYC Bert', colors: ['#FF6B35','#1C1C1C','#FFD700'], price: 100, desc: 'Empire state of mind' },
   ],
 
-  // Obstacle types with 3D properties
   OBSTACLES: [
-    { type: 'taxi',    emoji: '🚕', w: 1.8, h: 1.2, d: 3.0, color: '#FFD700', colorDark: '#B8960B' },
-    { type: 'bus',     emoji: '🚌', w: 2.0, h: 2.0, d: 5.0, color: '#FF4500', colorDark: '#B83000' },
-    { type: 'barrier', emoji: '🚧', w: 2.2, h: 0.8, d: 0.5, color: '#FF8C00', colorDark: '#CC7000' },
-    { type: 'hydrant', emoji: '🧯', w: 0.6, h: 0.8, d: 0.6, color: '#FF0000', colorDark: '#AA0000' },
-    { type: 'cone',    emoji: '🔶', w: 0.5, h: 0.7, d: 0.5, color: '#FF6600', colorDark: '#CC5200' },
-    { type: 'bike',    emoji: '🚲', w: 1.4, h: 1.0, d: 1.8, color: '#4169E1', colorDark: '#2E4BA0' },
+    { type: 'taxi',    emoji: '🚕', w: 1.6, h: 1.0, color: '#FFD700', colorDark: '#B8960B' },
+    { type: 'bus',     emoji: '🚌', w: 1.8, h: 1.8, color: '#FF4500', colorDark: '#B83000' },
+    { type: 'barrier', emoji: '🚧', w: 2.0, h: 0.6, color: '#FF8C00', colorDark: '#CC7000' },
+    { type: 'hydrant', emoji: '🧯', w: 0.5, h: 0.7, color: '#FF0000', colorDark: '#AA0000' },
+    { type: 'cone',    emoji: '🔶', w: 0.4, h: 0.5, color: '#FF6600', colorDark: '#CC5200' },
+    { type: 'bike',    emoji: '🚲', w: 1.2, h: 0.9, color: '#4169E1', colorDark: '#2E4BA0' },
   ],
 
-  // Leaderboard bot names
   BOT_NAMES: [
     'CryptoKing','SolanaWhale','MoonShot','DiamondPaws','TokenHunter',
     'BlockRunner','ChainDash','PumpFinder','AlphaSniper','DeFiDog',

@@ -1,5 +1,5 @@
 // =============================================
-// BERT RUNNER NYC - 3D Perspective Renderer
+// BERT RUNNER NYC - Renderer (Pseudo-3D)
 // =============================================
 
 const Renderer = {
@@ -7,12 +7,9 @@ const Renderer = {
   ctx: null,
   W: 0,
   H: 0,
-  dpr: 1,
-
-  // Camera
-  camY: CONFIG.CAMERA_HEIGHT,
-  fov: CONFIG.CAMERA_FOV,
-  vanishY: 0,    // screen Y of horizon
+  horizonY: 0,
+  roadTop: 0,
+  roadBottom: 0,
 
   init() {
     this.canvas = document.getElementById('gameCanvas');
@@ -22,164 +19,80 @@ const Renderer = {
   },
 
   resize() {
-    this.dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.W = window.innerWidth;
     this.H = window.innerHeight;
-    this.canvas.width = this.W * this.dpr;
-    this.canvas.height = this.H * this.dpr;
+    this.canvas.width = this.W * dpr;
+    this.canvas.height = this.H * dpr;
     this.canvas.style.width = this.W + 'px';
     this.canvas.style.height = this.H + 'px';
-    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    // Horizon at ~35% from top
-    this.vanishY = this.H * 0.35;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.horizonY = this.H * 0.38;
+    this.roadTop = this.horizonY;
+    this.roadBottom = this.H;
   },
 
-  // Project 3D world position to 2D screen
-  // x: lateral (-1 left, 0 center, 1 right)
-  // y: height above ground
-  // z: distance from camera (higher = further away)
-  project(x, y, z) {
-    if (z <= 0.1) return null; // behind camera
-    const scale = this.fov / z;
-    const screenX = this.W / 2 + x * scale * this.W * 0.12;
-    const screenY = this.vanishY + (this.camY - y) * scale * this.H * 0.15;
-    return { x: screenX, y: screenY, scale: scale };
+  // Convert a depth (0=near, 1=far) to a Y position on screen
+  depthToY(d) {
+    return this.horizonY + (this.H - this.horizonY) * (1 - d);
   },
 
-  // Get screen width of an object at distance z
-  projectWidth(worldWidth, z) {
-    if (z <= 0.1) return 0;
-    const scale = this.fov / z;
-    return worldWidth * scale * this.W * 0.12;
+  // Get the road width at a given screen Y
+  roadWidthAtY(y) {
+    const t = (y - this.horizonY) / (this.H - this.horizonY);
+    return t * this.W * 0.7; // road takes 70% of screen width at bottom
   },
 
-  // Get screen height of an object at distance z
-  projectHeight(worldHeight, z) {
-    if (z <= 0.1) return 0;
-    const scale = this.fov / z;
-    return worldHeight * scale * this.H * 0.15;
+  // Convert lane (-1, 0, 1) + depth (0-1) to screen X,Y
+  laneToScreen(lane, depth) {
+    const y = this.depthToY(depth);
+    const rw = this.roadWidthAtY(y);
+    const cx = this.W / 2;
+    const x = cx + lane * (rw / 3);
+    const scale = (y - this.horizonY) / (this.H - this.horizonY);
+    return { x, y, scale: Math.max(scale, 0.01) };
   },
 
-  // Clear with sky gradient
   clearSky() {
     const ctx = this.ctx;
-    const grad = ctx.createLinearGradient(0, 0, 0, this.vanishY + 30);
-    grad.addColorStop(0, '#0a0a20');
-    grad.addColorStop(0.3, '#12152a');
-    grad.addColorStop(0.6, '#1a2040');
-    grad.addColorStop(1, '#2a2050');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, this.W, this.vanishY + 30);
+    const g = ctx.createLinearGradient(0, 0, 0, this.horizonY + 10);
+    g.addColorStop(0, '#060614');
+    g.addColorStop(0.3, '#0d0d2b');
+    g.addColorStop(0.6, '#151540');
+    g.addColorStop(1, '#1e1e55');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, this.W, this.horizonY + 10);
   },
 
-  // Draw stars in sky
-  drawStars(frameCount) {
+  drawStars(frame) {
     const ctx = this.ctx;
     if (!this._stars) {
-      this._stars = Array.from({length: 80}, () => ({
-        x: Math.random() * this.W,
-        y: Math.random() * this.vanishY * 0.9,
-        sz: Math.random() * 1.5 + 0.3,
-        tw: Math.random() * Math.PI * 2,
-      }));
+      this._stars = [];
+      for (let i = 0; i < 50; i++) {
+        this._stars.push({
+          x: Math.random(), y: Math.random() * 0.9,
+          s: Math.random() * 1.3 + 0.4, p: Math.random() * 6.28
+        });
+      }
     }
-    this._stars.forEach(s => {
-      const alpha = 0.2 + 0.3 * Math.sin(s.tw + frameCount * 0.015);
-      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    for (const s of this._stars) {
+      ctx.fillStyle = `rgba(255,255,255,${0.25 + 0.25 * Math.sin(s.p + frame * 0.015)})`;
       ctx.beginPath();
-      ctx.arc(s.x, s.y, s.sz, 0, Math.PI * 2);
+      ctx.arc(s.x * this.W, s.y * this.horizonY, s.s, 0, 6.28);
       ctx.fill();
-    });
+    }
   },
 
-  // Draw a 3D box (used for obstacles)
-  drawBox3D(x, y, z, w, h, d, color, colorDark, colorSide) {
-    const front = this.project(x, y, z);
-    const back = this.project(x, y, z + d);
-    if (!front || !back) return;
-
-    const fW = this.projectWidth(w, z);
-    const fH = this.projectHeight(h, z);
-    const bW = this.projectWidth(w, z + d);
-    const bH = this.projectHeight(h, z + d);
-
+  drawMoon() {
     const ctx = this.ctx;
-
-    // Top face
-    ctx.fillStyle = colorSide || this.lighten(color, 30);
-    ctx.beginPath();
-    ctx.moveTo(front.x - fW/2, front.y - fH);
-    ctx.lineTo(back.x - bW/2, back.y - bH);
-    ctx.lineTo(back.x + bW/2, back.y - bH);
-    ctx.lineTo(front.x + fW/2, front.y - fH);
-    ctx.closePath();
-    ctx.fill();
-
-    // Right face
-    ctx.fillStyle = colorDark || this.darken(color, 30);
-    ctx.beginPath();
-    ctx.moveTo(front.x + fW/2, front.y);
-    ctx.lineTo(front.x + fW/2, front.y - fH);
-    ctx.lineTo(back.x + bW/2, back.y - bH);
-    ctx.lineTo(back.x + bW/2, back.y);
-    ctx.closePath();
-    ctx.fill();
-
-    // Left face
-    ctx.fillStyle = colorDark || this.darken(color, 20);
-    ctx.beginPath();
-    ctx.moveTo(front.x - fW/2, front.y);
-    ctx.lineTo(front.x - fW/2, front.y - fH);
-    ctx.lineTo(back.x - bW/2, back.y - bH);
-    ctx.lineTo(back.x - bW/2, back.y);
-    ctx.closePath();
-    ctx.fill();
-
-    // Front face
-    ctx.fillStyle = color;
-    ctx.fillRect(front.x - fW/2, front.y - fH, fW, fH);
-
-    // Front face border
-    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(front.x - fW/2, front.y - fH, fW, fH);
-  },
-
-  // Draw a sphere-like circle (for Bert, coins)
-  drawSphere(x, y, z, radius, colors) {
-    const p = this.project(x, y + radius, z);
-    if (!p) return;
-    const r = this.projectHeight(radius * 2, z) / 2;
-    if (r < 1) return;
-
-    const ctx = this.ctx;
-    const grad = ctx.createRadialGradient(p.x - r * 0.2, p.y - r * 0.2, r * 0.1, p.x, p.y, r);
-    grad.addColorStop(0, colors[0]);
-    grad.addColorStop(0.6, colors[1]);
-    grad.addColorStop(1, colors[2]);
-
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    ctx.fill();
-
-    return { x: p.x, y: p.y, r: r };
-  },
-
-  // Utility color helpers
-  lighten(hex, pct) {
-    const num = parseInt(hex.replace('#',''), 16);
-    const r = Math.min(255, (num >> 16) + pct);
-    const g = Math.min(255, ((num >> 8) & 0xff) + pct);
-    const b = Math.min(255, (num & 0xff) + pct);
-    return `rgb(${r},${g},${b})`;
-  },
-
-  darken(hex, pct) {
-    const num = parseInt(hex.replace('#',''), 16);
-    const r = Math.max(0, (num >> 16) - pct);
-    const g = Math.max(0, ((num >> 8) & 0xff) - pct);
-    const b = Math.max(0, (num & 0xff) - pct);
-    return `rgb(${r},${g},${b})`;
+    const x = this.W * 0.8, y = this.horizonY * 0.25;
+    ctx.fillStyle = '#E8E8D0';
+    ctx.shadowColor = 'rgba(255,255,200,0.4)';
+    ctx.shadowBlur = 25;
+    ctx.beginPath(); ctx.arc(x, y, 20, 0, 6.28); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(180,180,160,0.3)';
+    ctx.beginPath(); ctx.arc(x - 5, y - 3, 4, 0, 6.28); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 6, y + 2, 2.5, 0, 6.28); ctx.fill();
   },
 };

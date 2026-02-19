@@ -1,128 +1,80 @@
 // =============================================
-// BERT RUNNER NYC - Track / Road Renderer
+// BERT RUNNER NYC - Track / Road
 // =============================================
 
 const Track = {
-  // Draw the 3D road with perspective
   draw(distance) {
     const ctx = Renderer.ctx;
     const W = Renderer.W;
     const H = Renderer.H;
-    const vanishX = W / 2;
-    const vanishY = Renderer.vanishY;
+    const hY = Renderer.horizonY;
+    const cx = W / 2;
 
-    // Road segments from far to near
-    const segments = 60;
-    const segLen = CONFIG.ROAD_LENGTH / segments;
+    const segments = 80;
+    const segH = (H - hY) / segments;
 
-    for (let i = segments - 1; i >= 0; i--) {
-      const z1 = (i + 1) * segLen * 0.3 + 1;
-      const z0 = i * segLen * 0.3 + 1;
+    for (let i = 0; i < segments; i++) {
+      const y = H - i * segH;
+      const yNext = H - (i + 1) * segH;
+      const t = i / segments; // 0=near, 1=far
 
-      // Road edges (3 lanes wide)
-      const roadHalfW = CONFIG.LANE_WIDTH * 1.5;
-      const sideW = 2.0; // sidewalk width
+      // Road width narrows toward horizon
+      const rw = (1 - t * 0.95) * W * 0.55;
+      const rwNext = (1 - (i + 1) / segments * 0.95) * W * 0.55;
 
-      const lf0 = Renderer.project(-roadHalfW - sideW, 0, z0);
-      const rf0 = Renderer.project(roadHalfW + sideW, 0, z0);
-      const lf1 = Renderer.project(-roadHalfW - sideW, 0, z1);
-      const rf1 = Renderer.project(roadHalfW + sideW, 0, z1);
-
-      const rl0 = Renderer.project(-roadHalfW, 0, z0);
-      const rr0 = Renderer.project(roadHalfW, 0, z0);
-      const rl1 = Renderer.project(-roadHalfW, 0, z1);
-      const rr1 = Renderer.project(roadHalfW, 0, z1);
-
-      if (!lf0 || !rf0 || !lf1 || !rf1) continue;
-
-      // Sidewalk (left)
-      ctx.fillStyle = i % 2 === 0 ? '#555555' : '#505050';
+      // Sidewalk (wider than road)
+      const sw = rw * 1.3;
+      const swNext = rwNext * 1.3;
+      const sideColor = ((Math.floor(distance * 2 + i * 0.4)) % 2 === 0) ? '#484848' : '#424242';
+      ctx.fillStyle = sideColor;
       ctx.beginPath();
-      ctx.moveTo(lf0.x, lf0.y);
-      ctx.lineTo(rl0.x, rl0.y);
-      ctx.lineTo(rl1.x, rl1.y);
-      ctx.lineTo(lf1.x, lf1.y);
-      ctx.closePath();
-      ctx.fill();
-
-      // Sidewalk (right)
-      ctx.beginPath();
-      ctx.moveTo(rr0.x, rr0.y);
-      ctx.lineTo(rf0.x, rf0.y);
-      ctx.lineTo(rf1.x, rf1.y);
-      ctx.lineTo(rr1.x, rr1.y);
+      ctx.moveTo(cx - sw, y);
+      ctx.lineTo(cx + sw, y);
+      ctx.lineTo(cx + swNext, yNext);
+      ctx.lineTo(cx - swNext, yNext);
       ctx.closePath();
       ctx.fill();
 
       // Road surface
-      const roadOffset = Math.floor(distance * 10 + i) % 2;
-      ctx.fillStyle = roadOffset === 0 ? '#2a2a2a' : '#282828';
+      const roadColor = ((Math.floor(distance * 2 + i * 0.4)) % 2 === 0) ? '#2c2c2c' : '#282828';
+      ctx.fillStyle = roadColor;
       ctx.beginPath();
-      ctx.moveTo(rl0.x, rl0.y);
-      ctx.lineTo(rr0.x, rr0.y);
-      ctx.lineTo(rr1.x, rr1.y);
-      ctx.lineTo(rl1.x, rl1.y);
+      ctx.moveTo(cx - rw, y);
+      ctx.lineTo(cx + rw, y);
+      ctx.lineTo(cx + rwNext, yNext);
+      ctx.lineTo(cx - rwNext, yNext);
       ctx.closePath();
       ctx.fill();
 
-      // Curb highlight
-      ctx.strokeStyle = '#666';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(rl0.x, rl0.y);
-      ctx.lineTo(rl1.x, rl1.y);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(rr0.x, rr0.y);
-      ctx.lineTo(rr1.x, rr1.y);
-      ctx.stroke();
-    }
+      // Curb lines
+      if (i % 3 === 0 && rw > 10) {
+        ctx.strokeStyle = 'rgba(100,100,100,0.5)';
+        ctx.lineWidth = Math.max(1, (1 - t) * 2);
+        ctx.beginPath(); ctx.moveTo(cx - rw, y); ctx.lineTo(cx - rwNext, yNext); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx + rw, y); ctx.lineTo(cx + rwNext, yNext); ctx.stroke();
+      }
 
-    // Lane markings (dashed)
-    this.drawLaneMarkings(distance);
-
-    // Fill below road to screen bottom
-    const groundP = Renderer.project(0, 0, 1);
-    if (groundP) {
-      ctx.fillStyle = '#2a2a2a';
-      ctx.fillRect(0, groundP.y, W, H - groundP.y);
-    }
-  },
-
-  drawLaneMarkings(distance) {
-    const ctx = Renderer.ctx;
-    const dashLen = 2.0;
-    const gapLen = 2.0;
-    const totalLen = dashLen + gapLen;
-
-    for (let lane = 0; lane < 2; lane++) {
-      const laneX = (lane - 0.5) * CONFIG.LANE_WIDTH;
-
-      for (let d = 0; d < CONFIG.ROAD_LENGTH * 0.3; d += totalLen) {
-        const worldZ = d - (distance * 10 % totalLen);
-        if (worldZ < 0) continue;
-
-        const z0 = worldZ + 1;
-        const z1 = worldZ + dashLen + 1;
-
-        const p0 = Renderer.project(laneX, 0.01, z0);
-        const p1 = Renderer.project(laneX, 0.01, z1);
-        if (!p0 || !p1) continue;
-
-        const w0 = Renderer.projectWidth(0.15, z0);
-        const w1 = Renderer.projectWidth(0.15, z1);
-
-        ctx.fillStyle = '#FFD700';
-        ctx.globalAlpha = Math.max(0, 1 - z0 / 20);
-        ctx.beginPath();
-        ctx.moveTo(p0.x - w0/2, p0.y);
-        ctx.lineTo(p0.x + w0/2, p0.y);
-        ctx.lineTo(p1.x + w1/2, p1.y);
-        ctx.lineTo(p1.x - w1/2, p1.y);
-        ctx.closePath();
-        ctx.fill();
+      // Lane dashes (2 lines dividing 3 lanes)
+      const dashPhase = Math.floor(distance * 4 + i * 0.5) % 4;
+      if (dashPhase < 2 && rw > 15) {
+        ctx.fillStyle = `rgba(255,210,0,${0.7 * (1 - t)})`;
+        for (let l = -1; l <= 1; l += 2) {
+          const lx1 = cx + l * rw / 3;
+          const lx2 = cx + l * rwNext / 3;
+          const dw = Math.max(1, (1 - t) * 3);
+          ctx.beginPath();
+          ctx.moveTo(lx1 - dw / 2, y);
+          ctx.lineTo(lx1 + dw / 2, y);
+          ctx.lineTo(lx2 + dw / 2, yNext);
+          ctx.lineTo(lx2 - dw / 2, yNext);
+          ctx.closePath();
+          ctx.fill();
+        }
       }
     }
-    ctx.globalAlpha = 1;
+
+    // Fill below-road area
+    ctx.fillStyle = '#2c2c2c';
+    ctx.fillRect(0, H - 2, W, 4);
   },
 };

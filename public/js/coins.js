@@ -4,115 +4,125 @@
 
 const Coins = {
   list: [],
-  nextGroupZ: 20,
+  nextGroupDist: 40,
 
   init() {
     this.list = [];
-    this.nextGroupZ = 20;
+    this.nextGroupDist = 40;
   },
 
   spawn(distance) {
-    const worldZ = distance + CONFIG.DRAW_DISTANCE * 0.8;
-    if (worldZ < this.nextGroupZ) return;
+    if (distance < this.nextGroupDist) return;
 
     const lane = Math.floor(Math.random() * 3);
-    const laneX = (lane - 1) * CONFIG.LANE_WIDTH;
-    const floating = Math.random() > 0.6;
-    const count = CONFIG.COIN_GROUP_SIZE;
+    const floating = Math.random() > 0.65;
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < CONFIG.COIN_GROUP_SIZE; i++) {
       this.list.push({
-        x: laneX,
-        y: floating ? 1.5 + Math.random() * 0.5 : 0.5,
-        z: worldZ + i * 2,
+        z: 100 + i * 5,
+        lane: lane,
+        floating: floating,
         collected: false,
-        bobOffset: Math.random() * Math.PI * 2,
-        rotAngle: Math.random() * Math.PI * 2,
+        bobOffset: Math.random() * 6.28,
+        rotPhase: Math.random() * 6.28,
       });
     }
 
-    this.nextGroupZ = worldZ + 12 + Math.random() * 15;
+    this.nextGroupDist = distance + 30 + Math.random() * 40;
   },
 
-  update(speed, frameCount) {
-    // Remove far passed coins
+  update(speed) {
+    for (let c of this.list) {
+      c.z -= speed;
+    }
     this.list = this.list.filter(c => c.z > -5 && !c.collected);
   },
 
-  draw(distance, frameCount) {
+  draw(frame) {
     const ctx = Renderer.ctx;
+    const W = Renderer.W;
+    const H = Renderer.H;
+    const hY = Renderer.horizonY;
+    const cx = W / 2;
 
     for (const c of this.list) {
-      if (c.collected) continue;
-      const relZ = c.z - distance;
-      if (relZ < 0 || relZ > CONFIG.DRAW_DISTANCE) continue;
+      if (c.collected || c.z < 0 || c.z > 100) continue;
 
-      const bobY = Math.sin(frameCount * 0.06 + c.bobOffset) * 0.15;
-      const drawY = c.y + bobY;
+      const t = Math.min(c.z / 100, 1);
+      const scale = 1 - t * 0.95;
+      if (scale < 0.03) continue;
 
-      // Coin as golden circle with 3D effect
-      const p = Renderer.project(c.x, drawY, relZ);
-      if (!p) continue;
+      // Position
+      const baseY = H - (H - hY) * (1 - t);
+      const floatOff = c.floating ? 25 * scale : 0;
+      const bob = Math.sin(frame * 0.05 + c.bobOffset) * 4 * scale;
+      const y = baseY - 15 * scale - floatOff + bob;
 
-      const r = Renderer.projectHeight(0.35, relZ);
-      if (r < 1) continue;
+      const roadHW = scale * W * 0.55;
+      const x = cx + (c.lane - 1) * (roadHW * 0.67);
 
-      // Rotation effect (squeeze horizontally)
-      const squeeze = Math.abs(Math.cos(frameCount * 0.04 + c.rotAngle));
-      const rw = r * Math.max(0.2, squeeze);
+      // Size
+      const r = 10 * scale;
+      if (r < 2) continue;
 
-      // Outer ring
+      // Rotation squeeze
+      const squeeze = Math.abs(Math.cos(frame * 0.04 + c.rotPhase));
+      const rw = r * Math.max(0.25, squeeze);
+
+      // Draw coin
       ctx.fillStyle = '#FFD700';
       ctx.beginPath();
-      ctx.ellipse(p.x, p.y, rw, r, 0, 0, Math.PI * 2);
+      ctx.ellipse(x, y, rw, r, 0, 0, 6.28);
       ctx.fill();
 
-      // Inner highlight
+      // Highlight
       ctx.fillStyle = '#FFEC80';
       ctx.beginPath();
-      ctx.ellipse(p.x - rw * 0.15, p.y - r * 0.15, rw * 0.5, r * 0.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(x - rw * 0.15, y - r * 0.15, rw * 0.45, r * 0.45, 0, 0, 6.28);
       ctx.fill();
 
-      // $BERT text on coin (if big enough)
-      if (r > 6) {
+      // B letter
+      if (r > 5 && squeeze > 0.5) {
         ctx.fillStyle = '#B8860B';
-        ctx.font = `bold ${Math.max(6, r * 0.5)}px Rubik`;
+        ctx.font = `bold ${Math.max(5, r * 0.7)}px Rubik`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        if (squeeze > 0.5) ctx.fillText('B', p.x, p.y);
+        ctx.fillText('B', x, y);
       }
 
       // Glow
       ctx.shadowColor = '#FFD700';
-      ctx.shadowBlur = r * 0.5;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r * 0.1, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.shadowBlur = r * 0.4;
+      ctx.fillStyle = 'rgba(255,215,0,0.3)';
+      ctx.beginPath(); ctx.arc(x, y, r * 0.2, 0, 6.28); ctx.fill();
       ctx.shadowBlur = 0;
+
+      // Store for collision
+      c._sx = x;
+      c._sy = y;
+      c._sr = r;
     }
   },
 
-  // Check collection
-  checkCollection(playerBounds, distance) {
+  checkCollection(playerBounds) {
     let collected = 0;
-    const magnetRange = State.game.hasMagnet ? 3.0 : CONFIG.COIN_RADIUS;
+    const magnetBonus = State.game.hasMagnet ? 60 : 0;
 
     for (const c of this.list) {
-      if (c.collected) continue;
-      const relZ = c.z - distance;
-      const dz = Math.abs(relZ - playerBounds.z);
-      const dx = Math.abs(c.x - playerBounds.x);
-      const dy = Math.abs(c.y - playerBounds.y);
+      if (c.collected || c.z > 15 || c.z < -2) continue;
+      if (!c._sx) continue;
 
-      if (dz < magnetRange && dx < magnetRange && dy < magnetRange + 1) {
+      const dx = Math.abs(c._sx - playerBounds.x);
+      const dy = Math.abs(c._sy - playerBounds.y);
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const hitR = playerBounds.r + (c._sr || 10) + magnetBonus;
+
+      if (dist < hitR) {
         c.collected = true;
         collected++;
-        // Spawn particles at coin location
-        const p = Renderer.project(c.x, c.y, relZ);
-        if (p) Particles.spawn(p.x, p.y, '#FFD700', 6);
+        Particles.spawn(c._sx, c._sy, '#FFD700', 5);
       }
     }
-
     return collected;
   },
 };

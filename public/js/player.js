@@ -3,31 +3,35 @@
 // =============================================
 
 const Player = {
-  lane: 1,        // 0, 1, 2
+  lane: 1,         // 0=left, 1=center, 2=right
   targetLane: 1,
-  x: 0,           // actual x position
-  y: 0,           // height above ground
-  vy: 0,          // vertical velocity
+  screenX: 0,
+  jumpY: 0,        // 0 = on ground, positive = in air
+  vy: 0,
   isJumping: false,
-  jumpTimer: 0,
   bobPhase: 0,
   animFrame: 0,
   colors: ['#F4A460','#D2691E','#8B4513'],
+  baseSize: 32,
 
   init() {
     this.lane = 1;
     this.targetLane = 1;
-    this.x = 0;
-    this.y = 0;
+    this.jumpY = 0;
     this.vy = 0;
     this.isJumping = false;
-    this.jumpTimer = 0;
     this.bobPhase = 0;
+    this.animFrame = 0;
     this.colors = State.getSkin().colors;
+    this.screenX = Renderer.W / 2;
   },
 
   getLaneX(lane) {
-    return (lane - 1) * CONFIG.LANE_WIDTH;
+    const W = Renderer.W;
+    const cx = W / 2;
+    // Road width at player's depth position
+    const rw = W * 0.55 * 0.35; // road half-width scaled at player depth
+    return cx + (lane - 1) * (rw * 0.67);
   },
 
   switchLane(dir) {
@@ -43,102 +47,90 @@ const Player = {
   },
 
   update() {
-    // Smooth lane transition
-    const targetX = this.getLaneX(this.targetLane);
-    this.x += (targetX - this.x) * 0.12;
-
-    // Update lane once close enough
-    if (Math.abs(this.x - targetX) < 0.1) {
-      this.lane = this.targetLane;
-    }
+    // Smooth lane movement
+    const target = this.getLaneX(this.targetLane);
+    this.screenX += (target - this.screenX) * 0.15;
+    if (Math.abs(this.screenX - target) < 2) this.lane = this.targetLane;
 
     // Jump physics
     if (this.isJumping) {
-      this.y += this.vy;
+      this.jumpY += this.vy;
       this.vy -= CONFIG.GRAVITY;
-      if (this.y <= 0) {
-        this.y = 0;
+      if (this.jumpY <= 0) {
+        this.jumpY = 0;
         this.vy = 0;
         this.isJumping = false;
       }
     }
 
-    // Running bob
     this.bobPhase += 0.12;
     this.animFrame++;
   },
 
   draw() {
     const ctx = Renderer.ctx;
-    const z = CONFIG.PLAYER_Z;
-    const bobY = this.isJumping ? 0 : Math.sin(this.bobPhase) * 0.08;
-    const drawY = this.y + bobY;
+    const H = Renderer.H;
 
-    // Shadow on ground
-    const shadowP = Renderer.project(this.x, 0, z);
-    if (shadowP) {
-      const shadowW = Renderer.projectWidth(1.0, z);
-      const jumpShrink = 1 - this.y * 0.3;
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.beginPath();
-      ctx.ellipse(shadowP.x, shadowP.y, shadowW * 0.5 * jumpShrink, shadowW * 0.15 * jumpShrink, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    // Player vertical position on screen
+    const baseY = H * CONFIG.PLAYER_BASE_Y;
+    const bob = this.isJumping ? 0 : Math.sin(this.bobPhase) * 3;
+    const jumpPx = this.jumpY * H * 0.6; // convert jump to pixels
+    const y = baseY - jumpPx + bob;
+    const x = this.screenX;
+    const r = this.baseSize;
 
-    // Body (fluffy pom)
-    const bodySize = 0.5;
-    const drawn = Renderer.drawSphere(this.x, drawY, z, bodySize, this.colors);
-    if (!drawn) return;
+    // Shadow
+    ctx.fillStyle = `rgba(0,0,0,${0.3 - this.jumpY * 0.5})`;
+    ctx.beginPath();
+    ctx.ellipse(x, baseY + r * 0.6, r * (1 - this.jumpY * 0.3), r * 0.25 * (1 - this.jumpY * 0.3), 0, 0, 6.28);
+    ctx.fill();
+
+    // Body (fluffy ball)
+    const grad = ctx.createRadialGradient(x - r * 0.2, y - r * 0.2, r * 0.1, x, y, r);
+    grad.addColorStop(0, this.colors[0]);
+    grad.addColorStop(0.6, this.colors[1]);
+    grad.addColorStop(1, this.colors[2]);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 6.28);
+    ctx.fill();
 
     // Fluff tufts
-    const tuftCount = 8;
-    for (let i = 0; i < tuftCount; i++) {
-      const angle = (i / tuftCount) * Math.PI * 2 + this.animFrame * 0.05;
-      const tr = drawn.r * 0.85;
-      const tx = drawn.x + Math.cos(angle) * tr;
-      const ty = drawn.y + Math.sin(angle) * tr;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * 6.28 + this.animFrame * 0.04;
+      const tx = x + Math.cos(a) * r * 0.85;
+      const ty = y + Math.sin(a) * r * 0.85;
       ctx.fillStyle = this.colors[0];
-      ctx.globalAlpha = 0.7;
+      ctx.globalAlpha = 0.5;
       ctx.beginPath();
-      ctx.arc(tx, ty, drawn.r * 0.2, 0, Math.PI * 2);
+      ctx.arc(tx, ty, r * 0.22, 0, 6.28);
       ctx.fill();
     }
     ctx.globalAlpha = 1;
 
     // Eyes
-    const eyeSize = drawn.r * 0.17;
-    const eyeOffX = drawn.r * 0.3;
-    const eyeOffY = drawn.r * 0.2;
-
+    const eyeR = r * 0.14;
+    const eyeOx = r * 0.28;
+    const eyeOy = r * 0.15;
     ctx.fillStyle = '#1a1a1a';
-    ctx.beginPath();
-    ctx.arc(drawn.x - eyeOffX, drawn.y - eyeOffY, eyeSize, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(drawn.x + eyeOffX, drawn.y - eyeOffY, eyeSize, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(x - eyeOx, y - eyeOy, eyeR, 0, 6.28); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + eyeOx, y - eyeOy, eyeR, 0, 6.28); ctx.fill();
 
     // Eye shine
     ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(drawn.x - eyeOffX + 1, drawn.y - eyeOffY - 1, eyeSize * 0.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(drawn.x + eyeOffX + 1, drawn.y - eyeOffY - 1, eyeSize * 0.4, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(x - eyeOx + 1.5, y - eyeOy - 1.5, eyeR * 0.4, 0, 6.28); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + eyeOx + 1.5, y - eyeOy - 1.5, eyeR * 0.4, 0, 6.28); ctx.fill();
 
     // Nose
     ctx.fillStyle = '#333';
-    ctx.beginPath();
-    ctx.arc(drawn.x, drawn.y + drawn.r * 0.05, drawn.r * 0.1, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y + r * 0.05, r * 0.09, 0, 6.28); ctx.fill();
 
-    // Tongue (when running fast)
+    // Tongue when fast
     if (State.game.speed > CONFIG.INITIAL_SPEED * 1.5) {
       ctx.fillStyle = '#FF6B6B';
-      const tongueWag = Math.sin(this.animFrame * 0.15) * 2;
+      const tw = Math.sin(this.animFrame * 0.15) * 2;
       ctx.beginPath();
-      ctx.ellipse(drawn.x + tongueWag, drawn.y + drawn.r * 0.35, drawn.r * 0.12, drawn.r * 0.2, 0.2, 0, Math.PI * 2);
+      ctx.ellipse(x + tw, y + r * 0.35, r * 0.1, r * 0.18, 0.2, 0, 6.28);
       ctx.fill();
     }
 
@@ -146,24 +138,23 @@ const Player = {
     if (State.game.hasShield) {
       ctx.strokeStyle = 'rgba(88,166,255,0.5)';
       ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(drawn.x, drawn.y, drawn.r * 1.3, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, r * 1.4, 0, 6.28); ctx.stroke();
       ctx.strokeStyle = 'rgba(88,166,255,0.2)';
       ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.arc(drawn.x, drawn.y, drawn.r * 1.5, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, r * 1.6, 0, 6.28); ctx.stroke();
     }
   },
 
-  // Get collision bounds
-  getBounds() {
+  // Collision bounds (screen space)
+  getScreenBounds() {
+    const H = Renderer.H;
+    const baseY = H * CONFIG.PLAYER_BASE_Y;
+    const jumpPx = this.jumpY * H * 0.6;
     return {
-      x: this.x,
-      y: this.y,
-      z: CONFIG.PLAYER_Z,
-      r: CONFIG.PLAYER_RADIUS,
+      x: this.screenX,
+      y: baseY - jumpPx,
+      r: this.baseSize * 0.8,
+      jumpY: this.jumpY,
     };
   },
 };

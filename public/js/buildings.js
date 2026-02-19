@@ -1,126 +1,86 @@
 // =============================================
-// BERT RUNNER NYC - Buildings / Environment
+// BERT RUNNER NYC - Buildings
 // =============================================
 
 const Buildings = {
   list: [],
-  initialized: false,
 
   init() {
     this.list = [];
-    for (let i = 0; i < 30; i++) {
-      this.list.push(this.create(i * 4));
+    for (let i = 0; i < 40; i++) {
+      this.list.push(this.create(i * 3));
     }
-    this.initialized = true;
   },
 
   create(z) {
-    const side = Math.random() > 0.5 ? 1 : -1;
-    const roadEdge = CONFIG.LANE_WIDTH * 1.5 + 2.5;
     return {
-      x: side * (roadEdge + Math.random() * 3),
       z: z,
-      w: 2 + Math.random() * 3,
-      h: 4 + Math.random() * 16,
-      d: 2 + Math.random() * 3,
-      color: this.randomColor(),
-      windows: Math.floor(Math.random() * 5) + 2,
-      windowCols: Math.floor(Math.random() * 3) + 2,
-      side: side,
+      side: Math.random() > 0.5 ? 1 : -1,
+      w: 30 + Math.random() * 60,
+      h: 40 + Math.random() * 180,
+      color: ['#0e1520','#121a28','#0a1018','#151d2d','#1a2235'][Math.floor(Math.random() * 5)],
+      windows: Math.floor(Math.random() * 4) + 1,
+      winCols: Math.floor(Math.random() * 3) + 1,
     };
   },
 
-  randomColor() {
-    const colors = ['#1a2530','#243447','#1C2833','#2C3E50','#34495E','#1a1a30','#252540'];
-    return colors[Math.floor(Math.random() * colors.length)];
-  },
-
   update(speed) {
-    // Move buildings toward camera
-    for (let b of this.list) {
-      b.z -= speed * 10;
-    }
-    // Remove passed buildings, add new ones
+    for (let b of this.list) b.z -= speed;
     this.list = this.list.filter(b => b.z > -5);
-    while (this.list.length < 30) {
-      const furthest = Math.max(...this.list.map(b => b.z), 0);
-      this.list.push(this.create(furthest + 3 + Math.random() * 3));
+    while (this.list.length < 40) {
+      const farthest = Math.max(...this.list.map(b => b.z), 0);
+      this.list.push(this.create(farthest + 2 + Math.random() * 3));
     }
   },
 
   draw() {
     const ctx = Renderer.ctx;
+    const W = Renderer.W;
+    const H = Renderer.H;
+    const hY = Renderer.horizonY;
+    const cx = W / 2;
 
-    // Sort by z (far first)
+    // Sort far to near
     const sorted = [...this.list].sort((a, b) => b.z - a.z);
 
     for (const b of sorted) {
-      if (b.z < 0 || b.z > 50) continue;
+      if (b.z < 0 || b.z > 100) continue;
 
-      const front = Renderer.project(b.x, 0, b.z);
-      const back = Renderer.project(b.x, 0, b.z + b.d);
-      if (!front) continue;
+      // Depth factor: 0 = near, 1 = far
+      const maxZ = 100;
+      const t = Math.min(b.z / maxZ, 1);
 
-      const fW = Renderer.projectWidth(b.w, b.z);
-      const fH = Renderer.projectHeight(b.h, b.z);
-      const bW = back ? Renderer.projectWidth(b.w, b.z + b.d) : fW * 0.8;
-      const bH = back ? Renderer.projectHeight(b.h, b.z + b.d) : fH * 0.8;
+      // Y position on screen
+      const y = H - (H - hY) * (1 - t);
 
-      if (fW < 2) continue;
+      // Scale
+      const scale = 1 - t * 0.95;
+      if (scale < 0.02) continue;
 
-      // Front face
+      const bw = b.w * scale;
+      const bh = b.h * scale;
+      if (bw < 3 || bh < 5) continue;
+
+      // X position: offset from road edge
+      const roadW = scale * W * 0.55;
+      const sideW = roadW * 1.3;
+      const bx = b.side > 0 ? cx + sideW + bw * 0.3 : cx - sideW - bw * 0.3 - bw;
+
+      // Draw building
       ctx.fillStyle = b.color;
-      ctx.fillRect(front.x - fW/2, front.y - fH, fW, fH);
-
-      // Side face (visible side)
-      if (back) {
-        const sideColor = Renderer.darken(b.color, 15);
-        ctx.fillStyle = sideColor;
-
-        if (b.side > 0) {
-          // Right side building - show left face
-          ctx.beginPath();
-          ctx.moveTo(front.x - fW/2, front.y);
-          ctx.lineTo(front.x - fW/2, front.y - fH);
-          ctx.lineTo(back.x - bW/2, back.y - bH);
-          ctx.lineTo(back.x - bW/2, back.y);
-          ctx.closePath();
-          ctx.fill();
-        } else {
-          // Left side building - show right face
-          ctx.beginPath();
-          ctx.moveTo(front.x + fW/2, front.y);
-          ctx.lineTo(front.x + fW/2, front.y - fH);
-          ctx.lineTo(back.x + bW/2, back.y - bH);
-          ctx.lineTo(back.x + bW/2, back.y);
-          ctx.closePath();
-          ctx.fill();
-        }
-      }
+      ctx.fillRect(bx, y - bh, bw, bh);
 
       // Windows
-      this.drawWindows(front.x - fW/2, front.y - fH, fW, fH, b.windows, b.windowCols, b.z);
-    }
-  },
-
-  drawWindows(bx, by, bw, bh, rows, cols, z) {
-    const ctx = Renderer.ctx;
-    if (bw < 10 || bh < 15) return;
-
-    const padX = bw * 0.12;
-    const padY = bh * 0.06;
-    const ww = (bw - padX * 2) / cols - 2;
-    const wh = (bh - padY * 2) / rows - 2;
-    if (ww < 2 || wh < 2) return;
-
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        // Random lit/dark
-        const lit = Math.random() > 0.35;
-        ctx.fillStyle = lit ? 'rgba(255,200,50,0.7)' : 'rgba(30,40,60,0.5)';
-        const wx = bx + padX + c * (ww + 2);
-        const wy = by + padY + r * (wh + 2);
-        ctx.fillRect(wx, wy, ww, wh);
+      if (bw > 8 && bh > 12) {
+        const px = 3, py = 3;
+        const ww = Math.max(2, (bw - px * 2) / b.winCols - 1);
+        const wh = Math.max(2, Math.min(ww * 1.2, (bh - py * 2) / b.windows - 1));
+        for (let r = 0; r < b.windows; r++) {
+          for (let c = 0; c < b.winCols; c++) {
+            ctx.fillStyle = Math.random() > 0.4 ? 'rgba(255,200,50,0.6)' : 'rgba(30,40,60,0.4)';
+            ctx.fillRect(bx + px + c * (ww + 1), y - bh + py + r * (wh + 1), ww, wh);
+          }
+        }
       }
     }
   },

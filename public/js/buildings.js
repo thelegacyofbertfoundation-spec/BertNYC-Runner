@@ -1,84 +1,70 @@
 // =============================================
 // BERT RUNNER NYC - Buildings
+// Uses Renderer.project() for positioning
 // =============================================
-
 const Buildings = {
   list: [],
 
   init() {
     this.list = [];
-    for (let i = 0; i < 40; i++) {
-      this.list.push(this.create(i * 3));
-    }
+    for (let i = 0; i < 40; i++) this.list.push(this.create(CONFIG.PLAYER_Z + i * 8));
   },
 
   create(z) {
     return {
       z: z,
       side: Math.random() > 0.5 ? 1 : -1,
-      w: 30 + Math.random() * 60,
-      h: 40 + Math.random() * 180,
-      color: ['#0e1520','#121a28','#0a1018','#151d2d','#1a2235'][Math.floor(Math.random() * 5)],
-      windows: Math.floor(Math.random() * 4) + 1,
-      winCols: Math.floor(Math.random() * 3) + 1,
+      widthW: 1.5 + Math.random() * 3,  // world units
+      heightW: 3 + Math.random() * 12,
+      color: ['#0e1520','#121a28','#0a1018','#151d2d','#1a2235'][Math.floor(Math.random()*5)],
+      winRows: Math.floor(Math.random()*4)+1,
+      winCols: Math.floor(Math.random()*3)+1,
+      offset: 1.8 + Math.random() * 1.5, // how far from road edge (in lane units)
     };
   },
 
   update(speed) {
     for (let b of this.list) b.z -= speed;
-    this.list = this.list.filter(b => b.z > -5);
+    this.list = this.list.filter(b => b.z > CONFIG.DESPAWN_Z);
     while (this.list.length < 40) {
-      const farthest = Math.max(...this.list.map(b => b.z), 0);
-      this.list.push(this.create(farthest + 2 + Math.random() * 3));
+      const farthest = Math.max(...this.list.map(b => b.z), CONFIG.PLAYER_Z);
+      this.list.push(this.create(farthest + 5 + Math.random() * 8));
     }
   },
 
   draw() {
     const ctx = Renderer.ctx;
-    const W = Renderer.W;
-    const H = Renderer.H;
-    const hY = Renderer.horizonY;
-    const cx = W / 2;
-
     // Sort far to near
     const sorted = [...this.list].sort((a, b) => b.z - a.z);
 
     for (const b of sorted) {
-      if (b.z < 0 || b.z > 100) continue;
+      if (b.z < 1 || b.z > 300) continue;
 
-      // Depth factor: 0 = near, 1 = far
-      const maxZ = 100;
-      const t = Math.min(b.z / maxZ, 1);
+      // Project the building base position
+      const lanePos = b.side * b.offset;
+      const p = Renderer.project(lanePos, b.z, 0);
+      if (!p || p.scale < 0.01) continue;
 
-      // Y position on screen
-      const y = H - (H - hY) * (1 - t);
-
-      // Scale
-      const scale = 1 - t * 0.95;
-      if (scale < 0.02) continue;
-
-      const bw = b.w * scale;
-      const bh = b.h * scale;
+      const bw = Renderer.worldToPixels(b.widthW, b.z);
+      const bh = Renderer.worldToPixels(b.heightW, b.z);
       if (bw < 3 || bh < 5) continue;
 
-      // X position: offset from road edge
-      const roadW = scale * W * 0.55;
-      const sideW = roadW * 1.3;
-      const bx = b.side > 0 ? cx + sideW + bw * 0.3 : cx - sideW - bw * 0.3 - bw;
+      const bx = p.x - bw / 2;
+      const by = p.y - bh;
 
-      // Draw building
+      // Building body
       ctx.fillStyle = b.color;
-      ctx.fillRect(bx, y - bh, bw, bh);
+      ctx.fillRect(bx, by, bw, bh);
 
       // Windows
       if (bw > 8 && bh > 12) {
-        const px = 3, py = 3;
-        const ww = Math.max(2, (bw - px * 2) / b.winCols - 1);
-        const wh = Math.max(2, Math.min(ww * 1.2, (bh - py * 2) / b.windows - 1));
-        for (let r = 0; r < b.windows; r++) {
+        const px = bw * 0.1, py = bh * 0.06;
+        const ww = Math.max(2, (bw - px*2) / b.winCols - 1);
+        const wh = Math.max(2, Math.min(ww*1.3, (bh - py*2) / b.winRows - 1));
+        for (let r = 0; r < b.winRows; r++) {
           for (let c = 0; c < b.winCols; c++) {
             ctx.fillStyle = Math.random() > 0.4 ? 'rgba(255,200,50,0.6)' : 'rgba(30,40,60,0.4)';
-            ctx.fillRect(bx + px + c * (ww + 1), y - bh + py + r * (wh + 1), ww, wh);
+            ctx.fillRect(bx + px + c*(ww+1), by + py + r*(wh+1), ww, wh);
           }
         }
       }

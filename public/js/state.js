@@ -1,110 +1,54 @@
 // =============================================
 // BERT RUNNER NYC - State Management
 // =============================================
-
 const State = {
-  // Persistent state (saved to localStorage)
   data: {
-    energy: 5,
-    lastEnergyTime: Date.now(),
-    coins: 0,
-    bestScore: 0,
-    ownedSkins: ['default'],
-    equippedSkin: 'default',
-    powerUps: { magnet: 0, shield: 0, doubleCoins: 0, scoreBoost: 0 },
-    totalGames: 0,
-    weeklyScores: [],
-    monthlyScores: [],
-    allTimeScores: [],
-    vipExpiry: 0,
-    unlimitedExpiry: 0,
+    energy:5, lastEnergyTime:Date.now(), coins:0, bestScore:0,
+    ownedSkins:['default'], equippedSkin:'default',
+    powerUps:{magnet:0,shield:0,doubleCoins:0,scoreBoost:0},
+    totalGames:0, weeklyScores:[], monthlyScores:[], allTimeScores:[],
+    vipExpiry:0, unlimitedExpiry:0,
   },
-
-  // Runtime game state (not saved)
   game: {
-    running: false,
-    score: 0,
-    coins: 0,
-    speed: CONFIG.INITIAL_SPEED,
-    distance: 0,
-    frameCount: 0,
-    continueCount: 0,
-    hasScoreBoost: false,
-    hasCoinBoost: false,
-    hasShield: false,
-    hasMagnet: false,
+    running:false, score:0, coins:0, speed:CONFIG.INITIAL_SPEED,
+    distance:0, frameCount:0, continueCount:0,
+    hasScoreBoost:false, hasCoinBoost:false, hasShield:false, hasMagnet:false,
   },
-
   load() {
-    try {
-      const saved = localStorage.getItem('bertRunnerState');
-      if (saved) this.data = { ...this.data, ...JSON.parse(saved) };
-    } catch(e) { console.warn('State load failed:', e); }
+    try { const s=localStorage.getItem('bertRunnerState'); if(s) this.data={...this.data,...JSON.parse(s)}; } catch(e){}
   },
-
   save() {
-    try {
-      localStorage.setItem('bertRunnerState', JSON.stringify(this.data));
-    } catch(e) { console.warn('State save failed:', e); }
+    try { localStorage.setItem('bertRunnerState',JSON.stringify(this.data)); } catch(e){}
   },
-
   regenEnergy() {
-    if (this.data.energy >= CONFIG.MAX_ENERGY) {
-      this.data.lastEnergyTime = Date.now();
-      return;
-    }
-    const elapsed = Date.now() - this.data.lastEnergyTime;
-    const gained = Math.floor(elapsed / CONFIG.ENERGY_REGEN_MS);
-    if (gained > 0) {
-      this.data.energy = Math.min(CONFIG.MAX_ENERGY, this.data.energy + gained);
-      this.data.lastEnergyTime = Date.now();
-      this.save();
-    }
+    if(this.data.energy>=CONFIG.MAX_ENERGY){this.data.lastEnergyTime=Date.now();return;}
+    const g=Math.floor((Date.now()-this.data.lastEnergyTime)/CONFIG.ENERGY_REGEN_MS);
+    if(g>0){this.data.energy=Math.min(CONFIG.MAX_ENERGY,this.data.energy+g);this.data.lastEnergyTime=Date.now();this.save();}
   },
-
-  isUnlimited() {
-    return Date.now() < this.data.unlimitedExpiry || Date.now() < this.data.vipExpiry;
+  isUnlimited(){return Date.now()<this.data.unlimitedExpiry||Date.now()<this.data.vipExpiry;},
+  getSkin(){return CONFIG.SKINS.find(s=>s.id===this.data.equippedSkin)||CONFIG.SKINS[0];},
+  resetGame(){
+    const g=this.game; g.running=false;g.score=0;g.coins=0;g.speed=CONFIG.INITIAL_SPEED;
+    g.distance=0;g.frameCount=0;g.continueCount=0;
+    g.hasScoreBoost=false;g.hasCoinBoost=false;g.hasShield=false;g.hasMagnet=false;
   },
-
-  getSkin() {
-    return CONFIG.SKINS.find(s => s.id === this.data.equippedSkin) || CONFIG.SKINS[0];
-  },
-
-  resetGame() {
-    this.game.running = false;
-    this.game.score = 0;
-    this.game.coins = 0;
-    this.game.speed = CONFIG.INITIAL_SPEED;
-    this.game.distance = 0;
-    this.game.frameCount = 0;
-    this.game.continueCount = 0;
-    this.game.hasScoreBoost = false;
-    this.game.hasCoinBoost = false;
-    this.game.hasShield = false;
-    this.game.hasMagnet = false;
-  },
-
-  applyPowerUps() {
-    const pu = this.data.powerUps;
-    if (pu.scoreBoost > 0)  { this.game.hasScoreBoost = true; pu.scoreBoost--; }
-    if (pu.doubleCoins > 0) { this.game.hasCoinBoost = true;  pu.doubleCoins--; }
-    if (pu.shield > 0)      { this.game.hasShield = true;     pu.shield--; }
-    if (pu.magnet > 0)      { this.game.hasMagnet = true;     pu.magnet--; }
+  applyPowerUps(){
+    const p=this.data.powerUps;
+    if(p.scoreBoost>0){this.game.hasScoreBoost=true;p.scoreBoost--;}
+    if(p.doubleCoins>0){this.game.hasCoinBoost=true;p.doubleCoins--;}
+    if(p.shield>0){this.game.hasShield=true;p.shield--;}
+    if(p.magnet>0){this.game.hasMagnet=true;p.magnet--;}
     this.save();
   },
-
-  recordScore() {
-    this.data.coins += this.game.coins;
-    this.data.totalGames++;
-    const isNewBest = this.game.score > this.data.bestScore;
-    if (isNewBest) this.data.bestScore = this.game.score;
+  recordScore(){
+    this.data.coins+=this.game.coins; this.data.totalGames++;
+    const nb=this.game.score>this.data.bestScore;
+    if(nb) this.data.bestScore=this.game.score;
     this.data.weeklyScores.push(this.game.score);
     this.data.monthlyScores.push(this.game.score);
     this.data.allTimeScores.push(this.game.score);
-    // Trim
-    if (this.data.weeklyScores.length > 50) this.data.weeklyScores = this.data.weeklyScores.slice(-50);
-    if (this.data.monthlyScores.length > 200) this.data.monthlyScores = this.data.monthlyScores.slice(-200);
-    this.save();
-    return isNewBest;
+    if(this.data.weeklyScores.length>50) this.data.weeklyScores=this.data.weeklyScores.slice(-50);
+    if(this.data.monthlyScores.length>200) this.data.monthlyScores=this.data.monthlyScores.slice(-200);
+    this.save(); return nb;
   },
 };

@@ -1,13 +1,13 @@
 // ============================================
 // TELEGRAM BOT (Grammy)
-// Handles: /start, payments, pre_checkout
 // ============================================
 const { Bot, InlineKeyboard } = require('grammy');
 const { getDb } = require('./connection');
 const { SHOP_ITEMS, deliverItem } = require('./shop');
 
-async function createBot(token) {
-  const bot = new Bot(token);
+function createBot(token, botInfo) {
+  // Pass botInfo directly to avoid needing async init
+  const bot = new Bot(token, { botInfo });
 
   bot.command('start', async (ctx) => {
     const miniAppUrl = process.env.FRONTEND_URL || 'https://your-domain.com';
@@ -50,7 +50,6 @@ async function createBot(token) {
     const db = getDb();
     const uid = ctx.from.id;
     const user = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(uid);
-
     if (!user) return ctx.reply('You haven\'t played yet! Tap /start to begin.');
 
     await ctx.reply(
@@ -95,10 +94,7 @@ async function createBot(token) {
     try {
       const payload = JSON.parse(ctx.preCheckoutQuery.invoice_payload);
       const { itemId, uid } = payload;
-
-      if (!SHOP_ITEMS[itemId]) {
-        return ctx.answerPreCheckoutQuery(false, { error_message: 'Item no longer available' });
-      }
+      if (!SHOP_ITEMS[itemId]) return ctx.answerPreCheckoutQuery(false, { error_message: 'Item no longer available' });
 
       const item = SHOP_ITEMS[itemId];
       if (item.type === 'skin') {
@@ -106,7 +102,6 @@ async function createBot(token) {
         const owns = db.prepare('SELECT 1 FROM owned_skins WHERE telegram_id = ? AND skin_id = ?').get(uid, item.skinId);
         if (owns) return ctx.answerPreCheckoutQuery(false, { error_message: 'You already own this skin!' });
       }
-
       await ctx.answerPreCheckoutQuery(true);
     } catch (err) {
       console.error('Pre-checkout error:', err);
@@ -120,7 +115,6 @@ async function createBot(token) {
       const payload = JSON.parse(payment.invoice_payload);
       const { itemId, uid } = payload;
       const item = SHOP_ITEMS[itemId];
-
       if (!item) { console.error('Payment for unknown item:', itemId); return; }
 
       const db = getDb();
@@ -146,9 +140,6 @@ async function createBot(token) {
   });
 
   bot.catch((err) => { console.error('Bot error:', err); });
-
-  // Initialize bot info before returning
-  await bot.init();
 
   return bot;
 }

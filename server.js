@@ -8,6 +8,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const { Bot } = require('grammy');
 
 const { initDatabase } = require('./init');
 const { authMiddleware } = require('./auth');
@@ -52,7 +53,7 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     game: 'Bert Runner NYC',
-    version: '1.0.2',
+    version: '1.0.3',
     timestamp: new Date().toISOString(),
   });
 });
@@ -91,7 +92,15 @@ async function start() {
   }
 
   try {
-    const bot = await createBot(BOT_TOKEN);
+    // Fetch bot info FIRST using a temporary bot instance
+    console.log('🤖 Fetching bot info...');
+    const tempBot = new Bot(BOT_TOKEN);
+    await tempBot.init();
+    const botInfo = tempBot.botInfo;
+    console.log(`🤖 Bot info: @${botInfo.username} (ID: ${botInfo.id})`);
+
+    // Now create the real bot with botInfo pre-loaded (no init needed)
+    const bot = createBot(BOT_TOKEN, botInfo);
     app.set('bot', bot);
 
     const RAILWAY_URL = process.env.RAILWAY_PUBLIC_DOMAIN 
@@ -103,14 +112,13 @@ async function start() {
       if (!webhookBase.startsWith('http')) webhookBase = `https://${webhookBase}`;
       const webhookPath = `/bot-webhook-${BOT_TOKEN.split(':')[0]}`;
 
-      // Webhook handler with full error logging
       app.post(webhookPath, async (req, res) => {
         try {
-          console.log('📩 Webhook received:', JSON.stringify(req.body).substring(0, 200));
+          console.log('📩 Webhook update:', JSON.stringify(req.body).substring(0, 200));
           await bot.handleUpdate(req.body);
-          console.log('✅ Update handled successfully');
+          console.log('✅ Update handled');
         } catch (err) {
-          console.error('❌ Webhook handleUpdate error:', err.message);
+          console.error('❌ handleUpdate error:', err.message);
           console.error(err.stack);
         }
         res.sendStatus(200);
@@ -130,7 +138,7 @@ async function start() {
 }
 
 process.on('unhandledRejection', (err) => {
-  console.error('⚠️ Unhandled rejection (non-fatal):', err.message);
+  console.error('⚠️ Unhandled rejection:', err.message);
   console.error(err.stack);
 });
 

@@ -1,35 +1,38 @@
 // =============================================
-// BERT RUNNER NYC - Configuration v5
+// BERT RUNNER NYC - Config (Three.js)
 // =============================================
 const CONFIG = {
   MAX_ENERGY: 5,
   ENERGY_REGEN_MS: 20 * 60 * 1000,
 
-  // Much slower start, gradual acceleration
-  INITIAL_SPEED: 0.3,
-  MAX_SPEED: 1.2,
-  SPEED_INCREMENT: 0.00008,
+  INITIAL_SPEED: 0.15,
+  MAX_SPEED: 0.6,
+  SPEED_INCREMENT: 0.000025,
 
-  GRAVITY: 0.012,
-  JUMP_FORCE: 0.20,
+  GRAVITY: 0.008,
+  JUMP_FORCE: 0.18,
 
-  PLAYER_Z: 8,         // closer to camera
-  SPAWN_Z: 200,
-  DESPAWN_Z: -3,
+  LANE_WIDTH: 2.5,        // X distance between lanes
+  PLAYER_Z: 0,            // Player stays at Z=0
+  SPAWN_Z: -120,          // Obstacles spawn far away
+  DESPAWN_Z: 10,           // Remove after passing camera
+  ROAD_LENGTH: 160,
+  ROAD_WIDTH: 9,
+  SIDEWALK_WIDTH: 3,
 
-  OBSTACLE_MIN_GAP: 40,
-  OBSTACLE_MAX_GAP: 80,
+  OBSTACLE_MIN_GAP: 18,
+  OBSTACLE_MAX_GAP: 40,
   COIN_GROUP_SIZE: 5,
-  COIN_GAP: 5,
-
-  FOG_COLOR: '#1a1a3a',
+  COIN_GAP: 3,
 
   OBSTACLES: [
-    { type:'taxi',    w:2.2, h:1.3 },
-    { type:'bus',     w:2.6, h:2.0 },
-    { type:'barrier', w:2.5, h:0.8 },
-    { type:'cone',    w:0.6, h:0.7 },
-    { type:'dumpster',w:2.0, h:1.4 },
+    { type:'taxi', w:1.8, h:1.2, d:4.0, jumpable:false },
+    { type:'taxi', w:1.8, h:1.2, d:4.0, jumpable:false },
+    { type:'taxi', w:1.8, h:1.2, d:4.0, jumpable:false },
+    { type:'bus',  w:2.2, h:2.5, d:7.0, jumpable:false },
+    { type:'barrier', w:2.4, h:0.8, d:0.6, jumpable:true },
+    { type:'cone', w:0.5, h:0.7, d:0.5, jumpable:true },
+    { type:'hotdog', w:1.6, h:1.5, d:2.5, jumpable:false },
   ],
 
   SKINS: [

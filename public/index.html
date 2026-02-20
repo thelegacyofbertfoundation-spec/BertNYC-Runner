@@ -9,55 +9,30 @@
   <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
-
-  <!-- ===== MENU SCREEN ===== -->
   <div id="menuScreen" class="screen active">
     <div class="nyc-particle" style="left:10%;animation-delay:0s">&#127961;</div>
     <div class="nyc-particle" style="left:30%;animation-delay:2s">&#128661;</div>
     <div class="nyc-particle" style="left:60%;animation-delay:4s">&#128509;</div>
     <div class="nyc-particle" style="left:80%;animation-delay:6s">&#127750;</div>
-
-    <div class="game-logo">
-      <h1>BERT<br><span>RUNNER</span></h1>
-      <div class="subtitle">New York City</div>
-    </div>
-
+    <div class="game-logo"><h1>BERT<br><span>RUNNER</span></h1><div class="subtitle">New York City</div></div>
     <div class="bert-preview"></div>
-
     <div class="energy-display">
-      <span class="bolt">&#9889;</span>
-      <span class="count" id="energyCount">5</span>
-      <span class="label">/ 5 Plays</span>
-      <span class="energy-timer" id="energyTimer"></span>
+      <span class="bolt">&#9889;</span><span class="count" id="energyCount">5</span>
+      <span class="label">/ 5 Plays</span><span class="energy-timer" id="energyTimer"></span>
     </div>
-
     <div class="menu-buttons">
-      <button class="btn btn-play" onclick="UI.startGame()">
-        <span class="btn-icon">&#128062;</span> RUN!
-      </button>
-      <button class="btn btn-secondary" onclick="UI.showScreen('shopScreen')">
-        <span class="btn-icon">&#128722;</span> Shop
-      </button>
-      <button class="btn btn-secondary" onclick="UI.showScreen('leaderboardScreen'); UI.renderLeaderboard()">
-        <span class="btn-icon">&#127942;</span> Leaderboards
-      </button>
-      <button class="btn btn-secondary" onclick="UI.showScreen('skinsScreen'); UI.renderSkins()">
-        <span class="btn-icon">&#127912;</span> Skins
-      </button>
-      <button class="btn btn-ad" onclick="UI.watchAdForEnergy()" id="watchAdBtn" style="display:none">
-        <span class="btn-icon">&#128250;</span> Watch Ad → +1 Play
-      </button>
-      <button class="btn btn-star" onclick="UI.buyEnergy()" id="buyEnergyBtn" style="display:none">
-        <span class="btn-icon">&#11088;</span> Buy 3 Plays → 15 Stars
-      </button>
+      <button class="btn btn-play" onclick="UI.startGame()"><span class="btn-icon">&#128062;</span> RUN!</button>
+      <button class="btn btn-secondary" onclick="UI.showScreen('shopScreen')"><span class="btn-icon">&#128722;</span> Shop</button>
+      <button class="btn btn-secondary" onclick="UI.showScreen('leaderboardScreen'); UI.renderLeaderboard()"><span class="btn-icon">&#127942;</span> Leaderboards</button>
+      <button class="btn btn-secondary" onclick="UI.showScreen('skinsScreen'); UI.renderSkins()"><span class="btn-icon">&#127912;</span> Skins</button>
+      <button class="btn btn-ad" onclick="UI.watchAdForEnergy()" id="watchAdBtn" style="display:none"><span class="btn-icon">&#128250;</span> Watch Ad → +1 Play</button>
+      <button class="btn btn-star" onclick="UI.buyEnergy()" id="buyEnergyBtn" style="display:none"><span class="btn-icon">&#11088;</span> Buy 3 Plays → 15 Stars</button>
     </div>
-
     <div class="menu-skyline"></div>
   </div>
 
-  <!-- ===== GAME SCREEN ===== -->
   <div id="gameScreen" class="screen">
-    <canvas id="gameCanvas">Your browser does not support HTML5 Canvas.</canvas>
+    <canvas id="gameCanvas"></canvas>
     <div class="game-hud">
       <div class="hud-score" id="hudScore">0</div>
       <div class="hud-coins" id="hudCoins">&#129689; 0</div>
@@ -65,7 +40,6 @@
     <div class="hud-multiplier" id="hudMultiplier">2x SCORE</div>
   </div>
 
-  <!-- ===== GAME OVER SCREEN ===== -->
   <div id="gameOverScreen" class="screen">
     <div class="game-over-title">GAME OVER</div>
     <div class="score-card">
@@ -75,103 +49,40 @@
     </div>
     <div class="coins-earned" id="coinsEarned">&#129689; +0 coins</div>
     <div class="game-over-btns">
-      <button class="btn btn-star" onclick="UI.continueRun()" id="continueBtn">
-        <span class="btn-icon">&#11088;</span> Continue → 10 Stars
-      </button>
-      <button class="btn btn-ad" onclick="UI.continueRunAd()" id="continueAdBtn">
-        <span class="btn-icon">&#128250;</span> Continue → Watch Ad
-      </button>
-      <button class="btn btn-play" onclick="UI.startGame()">
-        <span class="btn-icon">&#128260;</span> Play Again
-      </button>
-      <button class="btn btn-secondary" onclick="UI.showScreen('menuScreen')">
-        <span class="btn-icon">&#127968;</span> Menu
-      </button>
+      <button class="btn btn-star" onclick="UI.continueRun()" id="continueBtn"><span class="btn-icon">&#11088;</span> Continue → 10 Stars</button>
+      <button class="btn btn-ad" onclick="UI.continueRunAd()" id="continueAdBtn"><span class="btn-icon">&#128250;</span> Continue → Watch Ad</button>
+      <button class="btn btn-play" onclick="UI.startGame()"><span class="btn-icon">&#128260;</span> Play Again</button>
+      <button class="btn btn-secondary" onclick="UI.showScreen('menuScreen')"><span class="btn-icon">&#127968;</span> Menu</button>
     </div>
   </div>
 
-  <!-- ===== SHOP SCREEN ===== -->
   <div id="shopScreen" class="screen">
-    <div class="screen-header">
-      <div class="back-btn" onclick="UI.showScreen('menuScreen')">&#8592;</div>
-      <div class="screen-title">&#11088; Star Shop</div>
-    </div>
-    <div class="shop-balance">
-      <span class="star-icon">&#11088;</span>
-      <span class="balance-amount" id="shopStarBalance">0</span>
-      <span class="balance-label">Telegram Stars</span>
-    </div>
+    <div class="screen-header"><div class="back-btn" onclick="UI.showScreen('menuScreen')">&#8592;</div><div class="screen-title">&#11088; Star Shop</div></div>
+    <div class="shop-balance"><span class="star-icon">&#11088;</span><span class="balance-amount" id="shopStarBalance">0</span><span class="balance-label">Telegram Stars</span></div>
     <div class="shop-section-title">&#128267; Energy &amp; Plays</div>
     <div class="shop-grid">
-      <div class="shop-item featured" onclick="UI.purchaseItem('energy3')">
-        <div class="popular">POPULAR</div>
-        <div class="item-icon">&#9889;</div>
-        <div class="item-name">3 Extra Plays</div>
-        <div class="item-desc">Jump right back in</div>
-        <div class="item-price">&#11088; 15 Stars</div>
-      </div>
-      <div class="shop-item" onclick="UI.purchaseItem('energy10')">
-        <div class="best-value">BEST VALUE</div>
-        <div class="item-icon">&#128267;</div>
-        <div class="item-name">10 Plays</div>
-        <div class="item-desc">Non-stop running</div>
-        <div class="item-price">&#11088; 40 Stars</div>
-      </div>
-      <div class="shop-item" onclick="UI.purchaseItem('unlimitedDay')">
-        <div class="item-icon">&#9854;</div>
-        <div class="item-name">Unlimited Day</div>
-        <div class="item-desc">24hr unlimited plays</div>
-        <div class="item-price">&#11088; 75 Stars</div>
-      </div>
+      <div class="shop-item featured" onclick="UI.purchaseItem('energy3')"><div class="popular">POPULAR</div><div class="item-icon">&#9889;</div><div class="item-name">3 Extra Plays</div><div class="item-desc">Jump right back in</div><div class="item-price">&#11088; 15 Stars</div></div>
+      <div class="shop-item" onclick="UI.purchaseItem('energy10')"><div class="best-value">BEST VALUE</div><div class="item-icon">&#128267;</div><div class="item-name">10 Plays</div><div class="item-desc">Non-stop running</div><div class="item-price">&#11088; 40 Stars</div></div>
+      <div class="shop-item" onclick="UI.purchaseItem('unlimitedDay')"><div class="item-icon">&#9854;</div><div class="item-name">Unlimited Day</div><div class="item-desc">24hr unlimited plays</div><div class="item-price">&#11088; 75 Stars</div></div>
     </div>
     <div class="shop-section-title">&#128640; Power-Ups</div>
     <div class="shop-grid">
-      <div class="shop-item" onclick="UI.purchaseItem('magnet')">
-        <div class="item-icon">&#129522;</div>
-        <div class="item-name">Coin Magnet</div>
-        <div class="item-desc">Auto-collect coins 30s</div>
-        <div class="item-price">&#11088; 10 Stars</div>
-      </div>
-      <div class="shop-item" onclick="UI.purchaseItem('shield')">
-        <div class="item-icon">&#128737;</div>
-        <div class="item-name">Shield</div>
-        <div class="item-desc">Survive 1 hit</div>
-        <div class="item-price">&#11088; 12 Stars</div>
-      </div>
-      <div class="shop-item" onclick="UI.purchaseItem('doubleCoins')">
-        <div class="item-icon">&#128176;</div>
-        <div class="item-name">2x Coins</div>
-        <div class="item-desc">Double coins next run</div>
-        <div class="item-price">&#11088; 8 Stars</div>
-      </div>
-      <div class="shop-item" onclick="UI.purchaseItem('scoreBoost')">
-        <div class="item-icon">&#10024;</div>
-        <div class="item-name">2x Score</div>
-        <div class="item-desc">Double score next run</div>
-        <div class="item-price">&#11088; 15 Stars</div>
-      </div>
+      <div class="shop-item" onclick="UI.purchaseItem('magnet')"><div class="item-icon">&#129522;</div><div class="item-name">Coin Magnet</div><div class="item-desc">Auto-collect coins 30s</div><div class="item-price">&#11088; 10 Stars</div></div>
+      <div class="shop-item" onclick="UI.purchaseItem('shield')"><div class="item-icon">&#128737;</div><div class="item-name">Shield</div><div class="item-desc">Survive 1 hit</div><div class="item-price">&#11088; 12 Stars</div></div>
+      <div class="shop-item" onclick="UI.purchaseItem('doubleCoins')"><div class="item-icon">&#128176;</div><div class="item-name">2x Coins</div><div class="item-desc">Double coins next run</div><div class="item-price">&#11088; 8 Stars</div></div>
+      <div class="shop-item" onclick="UI.purchaseItem('scoreBoost')"><div class="item-icon">&#10024;</div><div class="item-name">2x Score</div><div class="item-desc">Double score next run</div><div class="item-price">&#11088; 15 Stars</div></div>
     </div>
     <div class="shop-section-title">&#127912; Premium Skins</div>
     <div class="shop-grid" id="shopSkins"></div>
     <div class="shop-section-title">&#127941; VIP Pass</div>
     <div class="shop-grid">
-      <div class="shop-item featured" onclick="UI.purchaseItem('vipWeekly')">
-        <div class="best-value">SAVE 40%</div>
-        <div class="item-icon">&#128081;</div>
-        <div class="item-name">Weekly VIP Pass</div>
-        <div class="item-desc">Unlimited plays, 2x coins, exclusive skin, ad-free 7 days</div>
-        <div class="item-price">&#11088; 150 Stars</div>
-      </div>
+      <div class="shop-item featured" onclick="UI.purchaseItem('vipWeekly')"><div class="best-value">SAVE 40%</div><div class="item-icon">&#128081;</div><div class="item-name">Weekly VIP Pass</div><div class="item-desc">Unlimited plays, 2x coins, exclusive skin, ad-free 7 days</div><div class="item-price">&#11088; 150 Stars</div></div>
     </div>
     <div style="height:40px"></div>
   </div>
 
-  <!-- ===== LEADERBOARD SCREEN ===== -->
   <div id="leaderboardScreen" class="screen">
-    <div class="screen-header">
-      <div class="back-btn" onclick="UI.showScreen('menuScreen')">&#8592;</div>
-      <div class="screen-title">&#127942; Leaderboards</div>
-    </div>
+    <div class="screen-header"><div class="back-btn" onclick="UI.showScreen('menuScreen')">&#8592;</div><div class="screen-title">&#127942; Leaderboards</div></div>
     <div class="lb-tabs">
       <button class="lb-tab active" onclick="UI.switchLBTab('weekly',this)">Weekly</button>
       <button class="lb-tab" onclick="UI.switchLBTab('monthly',this)">Monthly</button>
@@ -181,19 +92,14 @@
     <div id="lbList" class="lb-list"></div>
   </div>
 
-  <!-- ===== SKINS SCREEN ===== -->
   <div id="skinsScreen" class="screen">
-    <div class="screen-header">
-      <div class="back-btn" onclick="UI.showScreen('menuScreen')">&#8592;</div>
-      <div class="screen-title">&#127912; Bert's Closet</div>
-    </div>
+    <div class="screen-header"><div class="back-btn" onclick="UI.showScreen('menuScreen')">&#8592;</div><div class="screen-title">&#127912; Bert's Closet</div></div>
     <div class="shop-grid" id="skinsGrid"></div>
   </div>
 
-  <!-- ===== TOAST ===== -->
   <div class="toast" id="toast"></div>
 
-  <!-- ===== GAME SCRIPTS ===== -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="./js/config.js"></script>
   <script src="./js/state.js"></script>
   <script src="./js/renderer.js"></script>
@@ -206,6 +112,5 @@
   <script src="./js/input.js"></script>
   <script src="./js/ui.js"></script>
   <script src="./js/main.js"></script>
-
 </body>
 </html>

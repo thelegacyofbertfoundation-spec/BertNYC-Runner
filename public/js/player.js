@@ -1,120 +1,199 @@
 // =============================================
-// BERT RUNNER NYC - Player v5
-// Bigger, more detailed Bert
+// BERT RUNNER NYC - 3D Player (Bert)
 // =============================================
 const Player = {
-  lane:1, targetLane:1, laneSmooth:0,
-  jumpH:0, vy:0, isJumping:false,
-  bobPhase:0, animFrame:0,
-  colors:['#F4A460','#D2691E','#8B4513'],
-  SIZE: 1.8, // bigger character
+  group: null,
+  body: null,
+  legs: [],
+  eyes: [],
+  shield: null,
+  lane: 1,
+  targetLane: 1,
+  laneSmooth: 0,
+  jumpH: 0,
+  vy: 0,
+  isJumping: false,
+  animFrame: 0,
+  colors: ['#F4A460', '#D2691E', '#8B4513'],
 
   init() {
-    this.lane=1;this.targetLane=1;this.laneSmooth=0;
-    this.jumpH=0;this.vy=0;this.isJumping=false;
-    this.bobPhase=0;this.animFrame=0;
-    this.colors=State.getSkin().colors;
-  },
-  switchLane(d){if(d>0&&this.targetLane<2)this.targetLane++;else if(d<0&&this.targetLane>0)this.targetLane--;},
-  jump(){if(!this.isJumping){this.isJumping=true;this.vy=CONFIG.JUMP_FORCE;}},
+    if (this.group) Renderer.disposeGroup(this.group);
+    this.lane = 1; this.targetLane = 1; this.laneSmooth = 0;
+    this.jumpH = 0; this.vy = 0; this.isJumping = false;
+    this.animFrame = 0;
+    this.colors = State.getSkin().colors;
+    this.legs = [];
+    this.eyes = [];
 
-  update() {
-    const ts=this.targetLane-1;
-    this.laneSmooth+=(ts-this.laneSmooth)*0.14;
-    if(Math.abs(this.laneSmooth-ts)<0.05){this.laneSmooth=ts;this.lane=this.targetLane;}
-    if(this.isJumping){this.jumpH+=this.vy;this.vy-=CONFIG.GRAVITY;if(this.jumpH<=0){this.jumpH=0;this.vy=0;this.isJumping=false;}}
-    this.bobPhase+=0.12;this.animFrame++;
-  },
+    this.group = new THREE.Group();
 
-  draw() {
-    const ctx=Renderer.ctx;
-    const z=CONFIG.PLAYER_Z;
-    const bob=this.isJumping?0:Math.sin(this.bobPhase)*0.05;
-    const p=Renderer.project(this.laneSmooth,z,this.jumpH+bob);
-    if(!p) return;
-    const r=Renderer.worldToPixels(this.SIZE,z);
-    const x=p.x, y=p.y;
+    const c = this.colors;
 
-    // Shadow
-    const ps=Renderer.project(this.laneSmooth,z,0);
-    if(ps){
-      const sh=Math.max(0.15,1-this.jumpH*1.5);
-      const sg=ctx.createRadialGradient(ps.x,ps.y,0,ps.x,ps.y,r*0.75*sh);
-      sg.addColorStop(0,`rgba(0,0,0,${0.3*sh})`);sg.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=sg;ctx.beginPath();ctx.ellipse(ps.x,ps.y,r*0.75*sh,r*0.22*sh,0,0,6.28);ctx.fill();
+    // Body — main sphere
+    const bodyGeo = new THREE.SphereGeometry(0.65, 24, 18);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(c[0]),
+      roughness: 0.6,
+      metalness: 0.05,
+    });
+    this.body = new THREE.Mesh(bodyGeo, bodyMat);
+    this.body.position.y = 0.9;
+    this.body.castShadow = true;
+    this.group.add(this.body);
+
+    // Fluffy outer ring (smaller spheres around body)
+    const fluffMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(c[1]),
+      roughness: 0.8,
+      transparent: true,
+      opacity: 0.5,
+    });
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const fluff = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), fluffMat);
+      fluff.position.set(Math.cos(a) * 0.55, 0.9 + Math.sin(a * 2) * 0.15, Math.sin(a) * 0.55);
+      this.group.add(fluff);
     }
-
-    // Running legs
-    if(!this.isJumping){
-      const lp=this.animFrame*0.2;
-      ctx.fillStyle=this.colors[2];
-      const lr=r*0.14;
-      ctx.beginPath();ctx.arc(x-r*0.22+Math.sin(lp)*r*0.12,y+r*0.8+Math.abs(Math.sin(lp))*r*0.08,lr,0,6.28);ctx.fill();
-      ctx.beginPath();ctx.arc(x+r*0.22+Math.sin(lp+Math.PI)*r*0.12,y+r*0.8+Math.abs(Math.sin(lp+Math.PI))*r*0.08,lr,0,6.28);ctx.fill();
-    }
-
-    // Fluff ring
-    for(let i=0;i<10;i++){
-      const a=(i/10)*6.28+this.animFrame*0.03;
-      const fx=x+Math.cos(a)*r*0.86, fy=y+Math.sin(a)*r*0.86;
-      const fg=ctx.createRadialGradient(fx,fy,0,fx,fy,r*0.28);
-      fg.addColorStop(0,this.colors[0]);fg.addColorStop(1,this.colors[1]+'00');
-      ctx.fillStyle=fg;ctx.beginPath();ctx.arc(fx,fy,r*0.28,0,6.28);ctx.fill();
-    }
-
-    // Body
-    const grad=ctx.createRadialGradient(x-r*0.15,y-r*0.15,r*0.05,x,y,r);
-    grad.addColorStop(0,this.colors[0]);grad.addColorStop(0.5,this.colors[1]);grad.addColorStop(1,this.colors[2]);
-    ctx.fillStyle=grad;ctx.beginPath();ctx.arc(x,y,r,0,6.28);ctx.fill();
-
-    // Highlight
-    ctx.fillStyle='rgba(255,255,255,0.07)';
-    ctx.beginPath();ctx.ellipse(x-r*0.2,y-r*0.3,r*0.4,r*0.25,-0.3,0,6.28);ctx.fill();
 
     // Ears
-    ctx.fillStyle=this.colors[1];
-    ctx.beginPath();ctx.moveTo(x-r*0.48,y-r*0.68);ctx.lineTo(x-r*0.25,y-r*1.02);ctx.lineTo(x-r*0.05,y-r*0.68);ctx.closePath();ctx.fill();
-    ctx.beginPath();ctx.moveTo(x+r*0.05,y-r*0.68);ctx.lineTo(x+r*0.25,y-r*1.02);ctx.lineTo(x+r*0.48,y-r*0.68);ctx.closePath();ctx.fill();
-    ctx.fillStyle='#FFB6C1';
-    ctx.beginPath();ctx.moveTo(x-r*0.38,y-r*0.7);ctx.lineTo(x-r*0.25,y-r*0.92);ctx.lineTo(x-r*0.12,y-r*0.7);ctx.closePath();ctx.fill();
-    ctx.beginPath();ctx.moveTo(x+r*0.12,y-r*0.7);ctx.lineTo(x+r*0.25,y-r*0.92);ctx.lineTo(x+r*0.38,y-r*0.7);ctx.closePath();ctx.fill();
+    const earMat = Renderer.getMat(c[1]);
+    const earInnerMat = Renderer.getMat('#ffaaaa');
+    for (const side of [-1, 1]) {
+      const earGeo = new THREE.ConeGeometry(0.18, 0.4, 8);
+      const ear = new THREE.Mesh(earGeo, earMat);
+      ear.position.set(side * 0.3, 1.7, 0);
+      ear.rotation.z = side * -0.3;
+      this.group.add(ear);
+      // Inner ear
+      const inner = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.25, 8), earInnerMat);
+      inner.position.set(side * 0.3, 1.68, 0.02);
+      inner.rotation.z = side * -0.3;
+      this.group.add(inner);
+    }
 
     // Eyes
-    const er=r*0.15, eox=r*0.27, eoy=r*0.17;
-    ctx.fillStyle='#fff';
-    ctx.beginPath();ctx.ellipse(x-eox,y-eoy,er*1.1,er*1.2,0,0,6.28);ctx.fill();
-    ctx.beginPath();ctx.ellipse(x+eox,y-eoy,er*1.1,er*1.2,0,0,6.28);ctx.fill();
-    ctx.fillStyle='#1a1a1a';
-    ctx.beginPath();ctx.arc(x-eox+1,y-eoy,er*0.65,0,6.28);ctx.fill();
-    ctx.beginPath();ctx.arc(x+eox+1,y-eoy,er*0.65,0,6.28);ctx.fill();
-    ctx.fillStyle='#fff';
-    ctx.beginPath();ctx.arc(x-eox+2,y-eoy-2,er*0.28,0,6.28);ctx.fill();
-    ctx.beginPath();ctx.arc(x+eox+2,y-eoy-2,er*0.28,0,6.28);ctx.fill();
+    const eyeWhiteMat = Renderer.getMat('#ffffff', { roughness: 0.3 });
+    const pupilMat = Renderer.getMat('#111111', { roughness: 0.2 });
+    const shineMat = Renderer.getMat('#ffffff', { emissive: '#ffffff', emissiveIntensity: 0.5 });
+    for (const side of [-1, 1]) {
+      // Eye white
+      const eyeGeo = new THREE.SphereGeometry(0.14, 12, 8);
+      const eye = new THREE.Mesh(eyeGeo, eyeWhiteMat);
+      eye.position.set(side * 0.22, 1.1, 0.55);
+      this.group.add(eye);
+      // Pupil
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 6), pupilMat);
+      pupil.position.set(side * 0.22, 1.08, 0.63);
+      this.group.add(pupil);
+      // Shine
+      const shine = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), shineMat);
+      shine.position.set(side * 0.19, 1.13, 0.65);
+      this.group.add(shine);
+    }
 
     // Nose
-    ctx.fillStyle='#222';ctx.beginPath();ctx.arc(x,y+r*0.06,r*0.09,0,6.28);ctx.fill();
+    const noseMat = Renderer.getMat('#222222', { roughness: 0.3, metalness: 0.2 });
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 8), noseMat);
+    nose.position.set(0, 0.98, 0.62);
+    this.group.add(nose);
 
-    // Mouth
-    if(State.game.speed>CONFIG.INITIAL_SPEED*1.3){
-      ctx.fillStyle='#FF6B6B';ctx.beginPath();ctx.arc(x,y+r*0.22,r*0.13,0,Math.PI);ctx.fill();
-      ctx.beginPath();ctx.ellipse(x+Math.sin(this.animFrame*0.12)*2,y+r*0.36,r*0.07,r*0.12,0,0,6.28);ctx.fill();
+    // Legs
+    const legMat = Renderer.getMat(c[2]);
+    for (const side of [-1, 1]) {
+      const leg = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), legMat);
+      leg.position.set(side * 0.22, 0.15, 0);
+      leg.castShadow = true;
+      this.group.add(leg);
+      this.legs.push(leg);
+    }
+
+    // Shield (invisible until activated)
+    const shieldGeo = new THREE.SphereGeometry(1.1, 24, 16);
+    const shieldMat = new THREE.MeshStandardMaterial({
+      color: 0x4488ff,
+      transparent: true,
+      opacity: 0,
+      roughness: 0.1,
+      metalness: 0.5,
+    });
+    this.shield = new THREE.Mesh(shieldGeo, shieldMat);
+    this.shield.position.y = 0.9;
+    this.group.add(this.shield);
+
+    this.group.position.set(0, 0, CONFIG.PLAYER_Z);
+    Renderer.scene.add(this.group);
+  },
+
+  switchLane(dir) {
+    if (dir > 0 && this.targetLane < 2) this.targetLane++;
+    else if (dir < 0 && this.targetLane > 0) this.targetLane--;
+  },
+
+  jump() {
+    if (!this.isJumping) {
+      this.isJumping = true;
+      this.vy = CONFIG.JUMP_FORCE;
+    }
+  },
+
+  update() {
+    const ts = this.targetLane - 1;
+    this.laneSmooth += (ts - this.laneSmooth) * 0.14;
+    if (Math.abs(this.laneSmooth - ts) < 0.03) {
+      this.laneSmooth = ts;
+      this.lane = this.targetLane;
+    }
+
+    if (this.isJumping) {
+      this.jumpH += this.vy;
+      this.vy -= CONFIG.GRAVITY;
+      if (this.jumpH <= 0) {
+        this.jumpH = 0;
+        this.vy = 0;
+        this.isJumping = false;
+      }
+    }
+
+    this.animFrame++;
+
+    // Position
+    this.group.position.x = this.laneSmooth * CONFIG.LANE_WIDTH;
+    this.group.position.y = this.jumpH * 6; // Scale jump height to world
+
+    // Body bob
+    if (!this.isJumping) {
+      this.body.position.y = 0.9 + Math.sin(this.animFrame * 0.12) * 0.05;
+    }
+
+    // Leg animation
+    if (!this.isJumping) {
+      const lp = this.animFrame * 0.18;
+      this.legs[0].position.z = Math.sin(lp) * 0.25;
+      this.legs[0].position.y = 0.15 + Math.abs(Math.sin(lp)) * 0.1;
+      this.legs[1].position.z = Math.sin(lp + Math.PI) * 0.25;
+      this.legs[1].position.y = 0.15 + Math.abs(Math.sin(lp + Math.PI)) * 0.1;
     } else {
-      ctx.strokeStyle='#333';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y+r*0.15,r*0.1,0.2,Math.PI-0.2);ctx.stroke();
+      // Tuck legs during jump
+      this.legs[0].position.y = 0.4;
+      this.legs[1].position.y = 0.4;
     }
 
-    // Shield
-    if(State.game.hasShield){
-      ctx.strokeStyle='rgba(88,166,255,0.4)';ctx.lineWidth=3;
-      ctx.beginPath();ctx.arc(x,y,r*1.5,0,6.28);ctx.stroke();
-      const sa=this.animFrame*0.08;
-      ctx.fillStyle='rgba(88,166,255,0.6)';
-      ctx.beginPath();ctx.arc(x+Math.cos(sa)*r*1.4,y+Math.sin(sa)*r*1.4,2,0,6.28);ctx.fill();
-    }
+    // Slight lean forward when running fast
+    const sf = (State.game.speed - CONFIG.INITIAL_SPEED) / (CONFIG.MAX_SPEED - CONFIG.INITIAL_SPEED);
+    this.body.rotation.x = sf * 0.15;
+
+    // Shield visibility
+    this.shield.material.opacity = State.game.hasShield ? 0.15 + Math.sin(this.animFrame * 0.05) * 0.05 : 0;
+    if (State.game.hasShield) this.shield.rotation.y += 0.02;
   },
 
   getCollisionInfo() {
-    const p=Renderer.project(this.laneSmooth,CONFIG.PLAYER_Z,this.jumpH);
-    const r=Renderer.worldToPixels(this.SIZE,CONFIG.PLAYER_Z);
-    return p?{x:p.x,y:p.y,r:r*0.7,jumpH:this.jumpH}:null;
+    return {
+      x: this.group.position.x,
+      y: this.group.position.y + 0.9,
+      z: CONFIG.PLAYER_Z,
+      r: 0.6,
+      jumpH: this.jumpH,
+    };
   },
 };

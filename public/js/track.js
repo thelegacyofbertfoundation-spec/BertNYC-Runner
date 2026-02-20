@@ -1,121 +1,127 @@
 // =============================================
-// BERT RUNNER NYC - Track v5
+// BERT RUNNER NYC - 3D Road & Environment
 // =============================================
 const Track = {
-  details: null,
+  group: null,
+  roadMesh: null,
+  markings: [],
+  crosswalks: [],
 
-  initDetails() {
-    this.details = [];
-    for (let i = 0; i < 40; i++) {
-      this.details.push({
-        type: ['manhole','crosswalk','puddle'][Math.floor(Math.random()*3)],
-        lane: Math.floor(Math.random()*3)-1,
-      });
+  init() {
+    // Clean up previous
+    if (this.group) Renderer.disposeGroup(this.group);
+    this.group = new THREE.Group();
+    this.markings = [];
+    this.crosswalks = [];
+
+    const RL = CONFIG.ROAD_LENGTH;
+    const RW = CONFIG.ROAD_WIDTH;
+    const SW = CONFIG.SIDEWALK_WIDTH;
+
+    // === GROUND PLANE (dark, extends far) ===
+    const groundGeo = new THREE.PlaneGeometry(80, RL * 2);
+    const groundMat = Renderer.getMat('#0a0a12', { roughness: 0.95 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(0, -0.05, -RL / 2);
+    ground.receiveShadow = true;
+    this.group.add(ground);
+
+    // === ROAD SURFACE ===
+    const roadGeo = new THREE.PlaneGeometry(RW, RL, 1, 1);
+    const roadMat = new THREE.MeshStandardMaterial({
+      color: 0x2a2a2e,
+      roughness: 0.85,
+      metalness: 0.05,
+    });
+    this.roadMesh = new THREE.Mesh(roadGeo, roadMat);
+    this.roadMesh.rotation.x = -Math.PI / 2;
+    this.roadMesh.position.set(0, 0, -RL / 2 + RL / 2);
+    this.roadMesh.receiveShadow = true;
+    this.group.add(this.roadMesh);
+
+    // === SIDEWALKS ===
+    const swGeo = new THREE.BoxGeometry(SW, 0.2, RL);
+    const swMat = Renderer.getMat('#3a3a38', { roughness: 0.9 });
+    const swL = new THREE.Mesh(swGeo, swMat);
+    swL.position.set(-RW / 2 - SW / 2, 0.1, -RL / 2 + RL / 2);
+    swL.receiveShadow = true;
+    this.group.add(swL);
+    const swR = new THREE.Mesh(swGeo, swMat);
+    swR.position.set(RW / 2 + SW / 2, 0.1, -RL / 2 + RL / 2);
+    swR.receiveShadow = true;
+    this.group.add(swR);
+
+    // === CURBS ===
+    const curbGeo = new THREE.BoxGeometry(0.15, 0.25, RL);
+    const curbMat = Renderer.getMat('#6a6a65', { roughness: 0.8 });
+    const curbL = new THREE.Mesh(curbGeo, curbMat);
+    curbL.position.set(-RW / 2, 0.12, -RL / 2 + RL / 2);
+    this.group.add(curbL);
+    const curbR = new THREE.Mesh(curbGeo, curbMat);
+    curbR.position.set(RW / 2, 0.12, -RL / 2 + RL / 2);
+    this.group.add(curbR);
+
+    // === LANE DIVIDER DASHES (yellow) ===
+    const dashMat = Renderer.getMat('#ddaa00', { emissive: '#443300', emissiveIntensity: 0.3 });
+    const dashGeo = new THREE.BoxGeometry(0.12, 0.02, 1.8);
+    for (let z = 5; z < RL; z += 4) {
+      for (const lx of [-CONFIG.LANE_WIDTH, CONFIG.LANE_WIDTH]) {
+        const dash = new THREE.Mesh(dashGeo, dashMat);
+        dash.position.set(lx / 1.02, 0.01, -z);
+        dash.receiveShadow = true;
+        this.group.add(dash);
+        this.markings.push({ mesh: dash, baseZ: -z });
+      }
     }
+
+    // === CENTER DOUBLE YELLOW ===
+    const centerMat = Renderer.getMat('#bb9900', { emissive: '#332200', emissiveIntensity: 0.2 });
+    const centerGeo = new THREE.BoxGeometry(0.06, 0.015, RL);
+    const cl = new THREE.Mesh(centerGeo, centerMat);
+    cl.position.set(-0.1, 0.005, -RL / 2 + RL / 2);
+    this.group.add(cl);
+    const cr = new THREE.Mesh(centerGeo, centerMat);
+    cr.position.set(0.1, 0.005, -RL / 2 + RL / 2);
+    this.group.add(cr);
+
+    // === CROSSWALKS ===
+    const cwMat = Renderer.getMat('#ccccbb', { roughness: 0.9 });
+    const cwStripeGeo = new THREE.BoxGeometry(RW * 0.75, 0.015, 0.35);
+    for (let z = 20; z < RL; z += 40) {
+      for (let s = 0; s < 5; s++) {
+        const stripe = new THREE.Mesh(cwStripeGeo, cwMat);
+        stripe.position.set(0, 0.005, -z - s * 0.7);
+        this.group.add(stripe);
+        this.crosswalks.push({ mesh: stripe, baseZ: -z - s * 0.7 });
+      }
+    }
+
+    // === MANHOLES ===
+    const mhGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.02, 16);
+    const mhMat = Renderer.getMat('#1a1a1a', { metalness: 0.4, roughness: 0.6 });
+    for (let i = 0; i < 8; i++) {
+      const mh = new THREE.Mesh(mhGeo, mhMat);
+      mh.position.set((Math.random() - 0.5) * RW * 0.6, 0.01, -10 - Math.random() * 100);
+      this.group.add(mh);
+    }
+
+    Renderer.scene.add(this.group);
   },
 
-  draw(distance) {
-    if (!this.details) this.initDetails();
-    const ctx = Renderer.ctx;
-    const W = Renderer.W, H = Renderer.H, hY = Renderer.horizonY, cx = Renderer.cx;
-
-    const farZ = 250, nearZ = CONFIG.PLAYER_Z * 0.3;
-    const steps = 100;
-    const dz = (farZ - nearZ) / steps;
-
-    for (let i = 0; i < steps; i++) {
-      const z1 = farZ - i * dz;
-      const z2 = farZ - (i+1) * dz;
-      const p1 = Renderer.project(0, z1, 0);
-      const p2 = Renderer.project(0, z2, 0);
-      if (!p1 || !p2) continue;
-      if (p1.y < hY-5 && p2.y < hY-5) continue;
-
-      const rw1 = p1.roadHW, rw2 = p2.roadHW;
-      const sw1 = rw1*1.35, sw2 = rw2*1.35;
-      const fog = Renderer.fogAt(z1);
-      const seg = Math.floor(distance*3 + i*0.5);
-
-      // Sidewalk
-      ctx.fillStyle = Renderer.fogColor(seg%2===0?'#555':'#505050', z1);
-      ctx.beginPath();
-      ctx.moveTo(cx-sw1,p1.y); ctx.lineTo(cx+sw1,p1.y);
-      ctx.lineTo(cx+sw2,p2.y); ctx.lineTo(cx-sw2,p2.y);
-      ctx.closePath(); ctx.fill();
-
-      // Sidewalk grid lines
-      if (i%8===0 && p1.scale>0.03) {
-        ctx.strokeStyle = `rgba(80,80,80,${(1-fog)*0.35})`;
-        ctx.lineWidth = Math.max(0.3, p1.scale*2);
-        ctx.beginPath(); ctx.moveTo(cx-sw1,p1.y); ctx.lineTo(cx+sw1,p1.y); ctx.stroke();
-      }
-
-      // Road
-      ctx.fillStyle = Renderer.fogColor(seg%2===0?'#363636':'#333', z1);
-      ctx.beginPath();
-      ctx.moveTo(cx-rw1,p1.y); ctx.lineTo(cx+rw1,p1.y);
-      ctx.lineTo(cx+rw2,p2.y); ctx.lineTo(cx-rw2,p2.y);
-      ctx.closePath(); ctx.fill();
-
-      // Asphalt texture
-      if (i%2===0 && p1.scale>0.04 && fog<0.6) {
-        ctx.fillStyle = `rgba(55,55,55,${(1-fog)*0.2})`;
-        for (let t=0;t<4;t++) {
-          ctx.fillRect(cx-rw1+Math.random()*rw1*2, (p1.y+p2.y)/2, Math.random()*4+1, 0.8);
-        }
-      }
-
-      // Curbs
-      if (p1.scale > 0.02) {
-        const ca = (1-fog)*0.55;
-        ctx.strokeStyle = `rgba(150,145,130,${ca})`;
-        ctx.lineWidth = Math.max(0.8, p1.scale*5);
-        ctx.beginPath(); ctx.moveTo(cx-rw1,p1.y); ctx.lineTo(cx-rw2,p2.y); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(cx+rw1,p1.y); ctx.lineTo(cx+rw2,p2.y); ctx.stroke();
-      }
-
-      // Lane dashes
-      const ds = Math.floor(distance*5+i*0.6);
-      if (ds%3<2 && rw1>8 && fog<0.8) {
-        const a = Math.min(1,p2.scale*6)*(1-fog);
-        ctx.fillStyle = `rgba(255,210,0,${a*0.6})`;
-        for (let l=-1;l<=1;l+=2) {
-          const x1=cx+l*rw1/3, x2=cx+l*rw2/3;
-          const dw = Math.max(0.8, p1.scale*5);
-          ctx.beginPath();
-          ctx.moveTo(x1-dw/2,p1.y); ctx.lineTo(x1+dw/2,p1.y);
-          ctx.lineTo(x2+dw/2,p2.y); ctx.lineTo(x2-dw/2,p2.y);
-          ctx.closePath(); ctx.fill();
-        }
-      }
-
-      // Road details
-      if (i%25===0 && p1.scale>0.04 && fog<0.5) {
-        const di = Math.floor(distance+i)%this.details.length;
-        this.drawDetail(this.details[di], cx, p1.y, p2.y, rw1, p1.scale, fog);
+  update(speed) {
+    // Scroll markings and crosswalks to simulate movement
+    for (const m of this.markings) {
+      m.mesh.position.z += speed;
+      if (m.mesh.position.z > CONFIG.DESPAWN_Z) {
+        m.mesh.position.z -= CONFIG.ROAD_LENGTH;
       }
     }
-
-    // Fill below
-    const pN = Renderer.project(0, nearZ, 0);
-    if (pN && pN.y < H) {
-      ctx.fillStyle = '#363636';
-      ctx.fillRect(0, pN.y, W, H-pN.y);
-    }
-  },
-
-  drawDetail(det, cx, y1, y2, rw, scale, fog) {
-    const ctx = Renderer.ctx;
-    const a = (1-fog)*0.35;
-    if (det.type==='crosswalk') {
-      ctx.fillStyle = `rgba(220,220,210,${a})`;
-      const sw=rw*0.55, sh=Math.max(1, scale*4);
-      for (let s=0;s<4;s++) ctx.fillRect(cx-sw, y1+s*sh*2.5, sw*2, sh);
-    } else if (det.type==='manhole') {
-      const mx=cx+det.lane*rw/3, mr=Math.max(2,scale*25);
-      ctx.fillStyle=`rgba(45,45,45,${a})`; ctx.beginPath(); ctx.arc(mx,(y1+y2)/2,mr,0,6.28); ctx.fill();
-      ctx.strokeStyle=`rgba(75,75,75,${a})`; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.arc(mx,(y1+y2)/2,mr,0,6.28); ctx.stroke();
+    for (const c of this.crosswalks) {
+      c.mesh.position.z += speed;
+      if (c.mesh.position.z > CONFIG.DESPAWN_Z) {
+        c.mesh.position.z -= CONFIG.ROAD_LENGTH;
+      }
     }
   },
 };

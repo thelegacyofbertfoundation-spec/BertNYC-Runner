@@ -1,187 +1,207 @@
 // =============================================
-// BERT RUNNER NYC - UI Manager
+// BERT RUNNER NYC - UI System
 // =============================================
 const UI = {
   showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
     if (id === 'menuScreen') this.updateMenuUI();
-    if (id === 'shopScreen') this.updateShopUI();
   },
-  showToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 2500);
-  },
+
   updateMenuUI() {
     State.regenEnergy();
-    document.getElementById('energyCount').textContent = State.data.energy;
-    const empty = State.data.energy <= 0 && !State.isUnlimited();
-    document.getElementById('watchAdBtn').style.display = empty ? 'flex' : 'none';
-    document.getElementById('buyEnergyBtn').style.display = empty ? 'flex' : 'none';
-    if (State.data.energy < CONFIG.MAX_ENERGY && !State.isUnlimited()) this.updateEnergyTimer();
-    else document.getElementById('energyTimer').textContent = State.isUnlimited() ? '∞ Unlimited' : '';
+    const ec = document.getElementById('energyCount');
+    if (ec) ec.textContent = State.data.energy;
+    const et = document.getElementById('energyTimer');
+    if (et) et.textContent = State.getEnergyTimer();
+    const ab = document.getElementById('watchAdBtn');
+    const bb = document.getElementById('buyEnergyBtn');
+    if (ab) ab.style.display = State.data.energy < CONFIG.MAX_ENERGY ? '' : 'none';
+    if (bb) bb.style.display = State.data.energy < CONFIG.MAX_ENERGY ? '' : 'none';
   },
-  updateEnergyTimer() {
-    if (State.data.energy >= CONFIG.MAX_ENERGY || State.isUnlimited()) {
-      document.getElementById('energyTimer').textContent = ''; return;
-    }
-    const rem = CONFIG.ENERGY_REGEN_MS - ((Date.now() - State.data.lastEnergyTime) % CONFIG.ENERGY_REGEN_MS);
-    const m = Math.floor(rem/60000), s = Math.floor((rem%60000)/1000);
-    document.getElementById('energyTimer').textContent = `(${m}:${s.toString().padStart(2,'0')})`;
-  },
+
   startGame() {
-    State.regenEnergy();
-    if (State.data.energy <= 0 && !State.isUnlimited()) {
-      this.showToast('No plays left! Watch an ad or buy more ⚡');
-      document.getElementById('watchAdBtn').style.display = 'flex';
-      document.getElementById('buyEnergyBtn').style.display = 'flex';
+    if (!State.useEnergy()) {
+      this.showToast('No energy! Wait or buy more ⚡');
       return;
     }
-    if (!State.isUnlimited()) { State.data.energy--; State.save(); }
-    State.resetGame(); State.applyPowerUps();
-    Player.init(); Obstacles.init(); Coins.init(); Particles.init(); Buildings.init();
-    Input.bind();
-    if (State.game.hasScoreBoost) {
-      document.getElementById('hudMultiplier').classList.add('active');
-    } else {
-      document.getElementById('hudMultiplier').classList.remove('active');
-    }
+    State.resetGame();
+    Player.init();
+    Buildings.init();
+    Obstacles.init();
+    Coins.init();
+    Particles.init();
+    Input.init();
     this.showScreen('gameScreen');
-    State.game.running = true;
+    this.updateHUD();
     Game.loop();
   },
+
   gameOver() {
-    State.game.running = false; Input.unbind();
-    try { navigator.vibrate?.(100); } catch(e) {}
-    const nb = State.recordScore();
-    document.getElementById('finalScore').textContent = State.game.score.toLocaleString();
-    document.getElementById('bestScoreText').innerHTML = nb ?
-      '<span class="new-best">🎉 NEW BEST!</span>' :
-      `Best: <span>${State.data.bestScore.toLocaleString()}</span>`;
-    document.getElementById('coinsEarned').textContent = `🪙 +${State.game.coins} coins`;
-    const cc = State.game.continueCount < 2;
-    document.getElementById('continueBtn').style.display = cc ? 'flex' : 'none';
-    document.getElementById('continueAdBtn').style.display = cc ? 'flex' : 'none';
+    State.endGame();
+    cancelAnimationFrame(Game.rafId);
+    const fs = document.getElementById('finalScore');
+    if (fs) fs.textContent = State.game.score;
+    const bs = document.getElementById('bestScoreText');
+    if (bs) bs.innerHTML = `Best: <span>${State.data.bestScore}</span>`;
+    const ce = document.getElementById('coinsEarned');
+    if (ce) ce.innerHTML = `🪙 +${State.game.coins} coins`;
     this.showScreen('gameOverScreen');
+    this.submitScore(State.game.score);
   },
+
   continueRun() {
-    if (State.data.coins < 10) { this.showToast('Not enough Stars! ⭐'); return; }
-    State.data.coins -= 10; State.save(); this.resumeRun();
-  },
-  continueRunAd() {
-    this.showToast('Loading ad... 📺');
-    setTimeout(() => this.resumeRun(), 1500);
-  },
-  resumeRun() {
-    State.game.continueCount++; State.game.hasShield = true;
-    Obstacles.list = Obstacles.list.filter(o => Math.abs(o.z - CONFIG.PLAYER_Z) > 20);
-    Input.bind(); this.showScreen('gameScreen');
-    State.game.running = true; Game.loop();
-  },
-  updateShopUI() {
-    document.getElementById('shopStarBalance').textContent = State.data.coins;
-    document.getElementById('shopSkins').innerHTML = CONFIG.SKINS.filter(s => s.id !== 'default').map(skin => {
-      const owned = State.data.ownedSkins.includes(skin.id);
-      return `<div class="shop-item ${owned?'owned':''} ${skin.featured?'featured':''}" onclick="UI.purchaseItem('skin_${skin.id}')">
-        ${skin.featured?'<div class="best-value">EXCLUSIVE</div>':''}
-        <div style="background:radial-gradient(circle,${skin.colors[0]} 30%,${skin.colors[1]} 60%,${skin.colors[2]} 100%);width:50px;height:50px;border-radius:50%;margin-bottom:6px"></div>
-        <div class="item-name">${skin.name}</div><div class="item-desc">${skin.desc}</div>
-        <div class="item-price ${owned?'owned-badge':''}">${owned?'✅ Owned':`⭐ ${skin.price} Stars`}</div></div>`;
-    }).join('');
-  },
-  purchaseItem(id) {
-    const prices = {energy3:15,energy10:40,unlimitedDay:75,magnet:10,shield:12,doubleCoins:8,scoreBoost:15,vipWeekly:150};
-    if (id.startsWith('skin_')) {
-      const sid = id.replace('skin_','');
-      const skin = CONFIG.SKINS.find(s => s.id === sid);
-      if (!skin) return;
-      if (State.data.ownedSkins.includes(sid)) {
-        State.data.equippedSkin = sid; State.save();
-        this.showToast(skin.name+' equipped! 🎨'); this.updateShopUI(); return;
-      }
-      if (State.data.coins < skin.price) { this.showToast('Not enough Stars! ⭐'); return; }
-      State.data.coins -= skin.price;
-      State.data.ownedSkins.push(sid); State.data.equippedSkin = sid;
-      State.save(); this.showToast(skin.name+' unlocked! 🎉'); this.updateShopUI(); return;
+    if (window.Telegram?.WebApp) {
+      Telegram.WebApp.openInvoice('continue_run_invoice', (status) => {
+        if (status === 'paid') this.doContiune();
+      });
+    } else {
+      this.showToast('Telegram Stars required');
     }
-    const price = prices[id]; if (!price) return;
-    if (State.data.coins < price) { this.showToast('Not enough Stars! ⭐'); return; }
-    State.data.coins -= price;
-    switch(id) {
-      case 'energy3': State.data.energy += 3; break;
-      case 'energy10': State.data.energy += 10; break;
-      case 'unlimitedDay': State.data.unlimitedExpiry = Date.now()+86400000; break;
-      case 'magnet': State.data.powerUps.magnet++; break;
-      case 'shield': State.data.powerUps.shield++; break;
-      case 'doubleCoins': State.data.powerUps.doubleCoins++; break;
-      case 'scoreBoost': State.data.powerUps.scoreBoost++; break;
-      case 'vipWeekly':
-        State.data.vipExpiry = Date.now()+604800000;
-        State.data.powerUps.doubleCoins += 7;
-        if (!State.data.ownedSkins.includes('nyc')) State.data.ownedSkins.push('nyc');
-        break;
-    }
-    State.save(); this.showToast('Purchase complete! ✅');
-    this.updateMenuUI(); this.updateShopUI();
   },
-  buyEnergy() { this.purchaseItem('energy3'); },
-  watchAdForEnergy() {
-    this.showToast('Loading ad... 📺');
-    setTimeout(() => {
-      State.data.energy += 1; State.save();
-      this.updateMenuUI(); this.showToast('+1 Play earned! ⚡');
-    }, 1500);
+  continueRunAd() { this.showToast('Ads coming soon!'); },
+  doContiune() {
+    State.game.running = true;
+    State.game.hasShield = true;
+    this.showScreen('gameScreen');
+    Game.loop();
   },
-  switchLBTab(type, btn) {
-    document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
-    btn.classList.add('active'); this.renderLeaderboard(type);
-  },
-  renderLeaderboard(type='weekly') {
-    const entries = [];
-    const ranges = {weekly:[50,800],monthly:[200,2500],alltime:[500,5000]};
-    const [min,max] = ranges[type];
-    for (let i=0;i<20;i++) entries.push({name:CONFIG.BOT_NAMES[i],score:Math.floor(Math.random()*(max-min)+min),isPlayer:false});
-    const pb = type==='weekly'?Math.max(0,...State.data.weeklyScores):type==='monthly'?Math.max(0,...State.data.monthlyScores):State.data.bestScore;
-    entries.push({name:'You',score:pb,isPlayer:true});
-    entries.sort((a,b)=>b.score-a.score);
-    const top3 = entries.slice(0,3);
-    const rest = entries.slice(3,20);
-    const po = [top3[1],top3[0],top3[2]].filter(Boolean);
-    const medals = ['🥈','🥇','🥉'];
-    document.getElementById('lbPodium').innerHTML = po.map((e,i) =>
-      `<div class="podium-spot"><div class="podium-avatar">${e.name[0]}</div>
-      <div class="podium-name">${e.name}${e.isPlayer?' (You)':''}</div>
-      <div class="podium-score">${e.score.toLocaleString()}</div>
-      <div class="podium-bar">${medals[i]}</div></div>`).join('');
-    document.getElementById('lbList').innerHTML = rest.map((e,i) =>
-      `<div class="lb-entry ${e.isPlayer?'you':''}">
-      <div class="lb-rank">${i+4}</div><div class="lb-entry-name">${e.name}${e.isPlayer?' (You)':''}</div>
-      <div class="lb-entry-score">${e.score.toLocaleString()}</div></div>`).join('');
-  },
-  renderSkins() {
-    document.getElementById('skinsGrid').innerHTML = CONFIG.SKINS.map(skin => {
-      const owned = State.data.ownedSkins.includes(skin.id);
-      const eq = State.data.equippedSkin === skin.id;
-      return `<div class="skin-card ${eq?'equipped':''}" onclick="UI.equipSkin('${skin.id}')">
-        <div class="skin-preview" style="background:radial-gradient(circle,${skin.colors[0]} 30%,${skin.colors[1]} 60%,${skin.colors[2]} 100%)"></div>
-        <div class="skin-name">${skin.name}</div>
-        <div style="font-size:11px;color:var(--text-dim)">${skin.desc}</div>
-        <div style="margin-top:6px;font-size:12px;font-weight:700;color:${eq?'var(--success)':owned?'var(--blue)':'var(--star-gold)'}">
-        ${eq?'✅ Equipped':owned?'Tap to Equip':'🔒 ⭐'+skin.price}</div></div>`;
-    }).join('');
-  },
-  equipSkin(sid) {
-    if (!State.data.ownedSkins.includes(sid)) {
-      this.showScreen('shopScreen'); this.updateShopUI();
-      this.showToast('Visit shop to unlock! 🛒'); return;
-    }
-    State.data.equippedSkin = sid; State.save();
-    this.renderSkins(); this.showToast('Skin equipped! 🎨');
-  },
+
   updateHUD() {
-    document.getElementById('hudScore').textContent = State.game.score.toLocaleString();
-    document.getElementById('hudCoins').textContent = '🪙 ' + State.game.coins;
+    const hs = document.getElementById('hudScore');
+    if (hs) hs.textContent = State.game.score;
+    const hc = document.getElementById('hudCoins');
+    if (hc) hc.innerHTML = `🪙 ${State.game.coins}`;
+    const hm = document.getElementById('hudMultiplier');
+    if (hm) hm.style.display = State.game.hasScoreBoost ? '' : 'none';
+  },
+
+  showToast(msg) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  },
+
+  // === SHOP ===
+  purchaseItem(item) {
+    if (!window.Telegram?.WebApp) {
+      this.showToast('Open in Telegram to purchase');
+      return;
+    }
+    const tg = Telegram.WebApp;
+    const prices = { energy3:15, energy10:40, unlimitedDay:75, magnet:10, shield:12, doubleCoins:8, scoreBoost:15, vipWeekly:150 };
+    const p = prices[item];
+    if (!p) return;
+    this.showToast(`Opening payment for ${p} ⭐...`);
+    try {
+      tg.openInvoice(`${item}_invoice`, (status) => {
+        if (status === 'paid') this.onPurchaseSuccess(item);
+        else this.showToast('Payment cancelled');
+      });
+    } catch(e) { this.showToast('Payment not available'); }
+  },
+
+  onPurchaseSuccess(item) {
+    switch(item) {
+      case 'energy3': State.data.energy = Math.min(CONFIG.MAX_ENERGY + 3, State.data.energy + 3); break;
+      case 'energy10': State.data.energy = Math.min(CONFIG.MAX_ENERGY + 10, State.data.energy + 10); break;
+      case 'unlimitedDay': State.data.energy = 999; break;
+      case 'magnet': State.game.hasMagnet = true; break;
+      case 'shield': State.game.hasShield = true; break;
+      case 'doubleCoins': State.game.hasCoinBoost = true; break;
+      case 'scoreBoost': State.game.hasScoreBoost = true; break;
+    }
+    State.save();
+    this.updateMenuUI();
+    this.showToast('Purchase successful! 🎉');
+  },
+
+  buyEnergy() { this.purchaseItem('energy3'); },
+  watchAdForEnergy() { this.showToast('Ads coming soon!'); },
+
+  // === LEADERBOARD ===
+  renderLeaderboard() {
+    const podium = document.getElementById('lbPodium');
+    const list = document.getElementById('lbList');
+    if (!podium || !list) return;
+
+    const entries = this.generateFakeLeaderboard();
+    podium.innerHTML = entries.slice(0, 3).map((e, i) => {
+      const medals = ['🥇','🥈','🥉'];
+      return `<div class="podium-entry"><div class="podium-medal">${medals[i]}</div><div class="podium-name">${e.name}</div><div class="podium-score">${e.score.toLocaleString()}</div></div>`;
+    }).join('');
+
+    list.innerHTML = entries.slice(3, 20).map((e, i) => {
+      return `<div class="lb-entry"><span class="lb-rank">${i+4}</span><span class="lb-name">${e.name}</span><span class="lb-score">${e.score.toLocaleString()}</span></div>`;
+    }).join('');
+  },
+
+  generateFakeLeaderboard() {
+    const names = CONFIG.BOT_NAMES;
+    const entries = names.map(n => ({ name: n, score: Math.floor(Math.random() * 5000) + 500 }));
+    entries.push({ name: '⭐ You', score: State.data.bestScore });
+    entries.sort((a, b) => b.score - a.score);
+    return entries;
+  },
+
+  switchLBTab(tab, btn) {
+    document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    this.renderLeaderboard();
+  },
+
+  // === SKINS ===
+  renderSkins() {
+    const grid = document.getElementById('skinsGrid');
+    if (!grid) return;
+    grid.innerHTML = CONFIG.SKINS.map(s => {
+      const owned = State.data.ownedSkins.includes(s.id);
+      const active = State.data.activeSkin === s.id;
+      const grad = `linear-gradient(135deg, ${s.colors[0]}, ${s.colors[1]}, ${s.colors[2]})`;
+      return `<div class="shop-item ${active ? 'active-skin' : ''}" onclick="UI.selectSkin('${s.id}')">
+        <div class="skin-preview" style="background:${grad}"></div>
+        <div class="item-name">${s.name}</div>
+        <div class="item-desc">${s.desc}</div>
+        ${active ? '<div class="item-price">✅ Equipped</div>' :
+          owned ? '<div class="item-price" style="color:#4CAF50">Tap to equip</div>' :
+          `<div class="item-price">🪙 ${s.price} coins</div>`}
+      </div>`;
+    }).join('');
+  },
+
+  selectSkin(id) {
+    const s = CONFIG.SKINS.find(s => s.id === id);
+    if (!s) return;
+    if (State.data.ownedSkins.includes(id)) {
+      State.data.activeSkin = id;
+      State.save();
+      this.renderSkins();
+      this.showToast(`${s.name} equipped! 🎨`);
+    } else if (State.data.coins >= s.price) {
+      State.data.coins -= s.price;
+      State.data.ownedSkins.push(id);
+      State.data.activeSkin = id;
+      State.save();
+      this.renderSkins();
+      this.showToast(`${s.name} unlocked! 🎉`);
+    } else {
+      this.showToast(`Need ${s.price - State.data.coins} more coins!`);
+    }
+  },
+
+  submitScore(score) {
+    try {
+      const baseUrl = window.location.origin;
+      const tg = window.Telegram?.WebApp;
+      const userId = tg?.initDataUnsafe?.user?.id || 'anon';
+      const username = tg?.initDataUnsafe?.user?.username || 'Player';
+      fetch(`${baseUrl}/api/score`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ userId, username, score }),
+      }).catch(() => {});
+    } catch(e) {}
   },
 };
-setInterval(() => UI.updateEnergyTimer(), 1000);

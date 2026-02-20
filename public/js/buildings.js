@@ -1,108 +1,138 @@
 // =============================================
-// BERT RUNNER NYC - Buildings v5
+// BERT RUNNER NYC - 3D Buildings
 // =============================================
 const Buildings = {
   list: [],
-  streetItems: [],
 
   init() {
-    this.list = []; this.streetItems = [];
-    for (let i=0;i<45;i++) this.list.push(this.mkB(CONFIG.PLAYER_Z+i*5));
-    for (let i=0;i<25;i++) this.streetItems.push(this.mkS(CONFIG.PLAYER_Z+i*8));
+    // Clean previous
+    for (const b of this.list) Renderer.disposeGroup(b.group);
+    this.list = [];
+
+    const RW = CONFIG.ROAD_WIDTH / 2 + CONFIG.SIDEWALK_WIDTH;
+    // Spawn buildings along both sides
+    for (let z = 0; z < CONFIG.ROAD_LENGTH; z += 3 + Math.random() * 3) {
+      this.list.push(this.createBuilding(-1, RW + Math.random() * 2, -z));
+      this.list.push(this.createBuilding(1, RW + Math.random() * 2, -z));
+    }
   },
 
-  mkB(z) {
-    const side = Math.random()>0.5?1:-1;
-    const style = Math.floor(Math.random()*4);
-    const cols = [
-      {main:'#2B1810',trim:'#8B4513',win:'rgba(255,200,80,0.5)'},
-      {main:'#1a2a3a',trim:'#3a5a7a',win:'rgba(150,200,255,0.4)'},
-      {main:'#3B2410',trim:'#6B4420',win:'rgba(255,180,60,0.5)'},
-      {main:'#1C2833',trim:'#2E4053',win:'rgba(255,220,100,0.6)'},
-    ][style];
-    return {
-      z, side, offset:1.5+Math.random()*1.0, w:1.2+Math.random()*2.5,
-      h:3+Math.random()*(style===1?14:8), style, cols,
-      winR:Math.floor(Math.random()*5)+2, winC:Math.floor(Math.random()*3)+2,
-      hasSign:style===3||Math.random()>0.6,
-      signCol:['#FF0040','#00DDFF','#FFAA00','#FF00FF','#00FF88'][Math.floor(Math.random()*5)],
-      signTxt:['PIZZA','DELI','24HR','BAR','NYC','CAFE','SHOP'][Math.floor(Math.random()*7)],
-      hasAwning:style===3, awnCol:['#CC2222','#2255AA','#22AA44'][Math.floor(Math.random()*3)],
-    };
-  },
+  createBuilding(side, offset, z) {
+    const group = new THREE.Group();
 
-  mkS(z) {
-    return { z, side:Math.random()>0.5?1:-1, type:Math.random()>0.5?'lamp':'trash', offset:1.3 };
+    const w = 2 + Math.random() * 4;
+    const h = 3 + Math.random() * 18;
+    const d = 2 + Math.random() * 4;
+    const x = side * offset + side * w / 2;
+
+    // Building colors
+    const palettes = [
+      { body: '#2a1a12', trim: '#4a3020', win: '#ffcc44' },
+      { body: '#1a2530', trim: '#2a4560', win: '#88bbff' },
+      { body: '#301a10', trim: '#5a3820', win: '#ffaa33' },
+      { body: '#141418', trim: '#242430', win: '#ccddff' },
+      { body: '#1e1610', trim: '#3e3020', win: '#ffbb55' },
+    ];
+    const pal = palettes[Math.floor(Math.random() * palettes.length)];
+
+    // Main structure
+    const bodyGeo = new THREE.BoxGeometry(w, h, d);
+    const bodyMat = Renderer.getMat(pal.body, { roughness: 0.9 });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.set(0, h / 2, 0);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+
+    // Trim at top
+    const trimGeo = new THREE.BoxGeometry(w + 0.1, 0.2, d + 0.1);
+    const trimMat = Renderer.getMat(pal.trim, { roughness: 0.8 });
+    const trim = new THREE.Mesh(trimGeo, trimMat);
+    trim.position.set(0, h, 0);
+    group.add(trim);
+
+    // Windows — rows of emissive cubes
+    const winRows = Math.floor(h / 1.5);
+    const winCols = Math.floor(w / 1.2);
+    if (winCols > 0 && winRows > 0) {
+      const winGeo = new THREE.BoxGeometry(0.5, 0.6, 0.05);
+      for (let r = 0; r < winRows; r++) {
+        for (let c = 0; c < winCols; c++) {
+          if (Math.random() > 0.5) continue; // some dark
+          const lit = Math.random() > 0.25;
+          const warmth = 0.5 + Math.random() * 0.5;
+          const winMat = lit ?
+            Renderer.getMat(pal.win, {
+              emissive: pal.win,
+              emissiveIntensity: warmth * 0.6,
+              roughness: 0.3,
+            }) :
+            Renderer.getMat('#0a0a15', { roughness: 0.9 });
+
+          // Front face windows
+          const win = new THREE.Mesh(winGeo, winMat);
+          const wx = -w / 2 + 0.6 + c * (w - 1) / Math.max(1, winCols - 1);
+          const wy = 1 + r * 1.4;
+          if (wy > h - 0.5) continue;
+          win.position.set(wx, wy, d / 2 + 0.01);
+          group.add(win);
+
+          // Side face windows (facing road)
+          if (Math.random() > 0.4) {
+            const sideWin = new THREE.Mesh(winGeo, winMat);
+            sideWin.rotation.y = Math.PI / 2;
+            sideWin.position.set(side > 0 ? -w / 2 - 0.01 : w / 2 + 0.01, wy, -d / 2 + 0.6 + c * 0.9);
+            if (sideWin.position.z < d / 2 - 0.3) group.add(sideWin);
+          }
+        }
+      }
+    }
+
+    // Neon sign (on shops)
+    if (h < 8 && Math.random() > 0.4) {
+      const signColors = [0xff0044, 0x00ccff, 0xffaa00, 0xff00cc, 0x00ff88];
+      const sc = signColors[Math.floor(Math.random() * signColors.length)];
+      const signGeo = new THREE.BoxGeometry(w * 0.7, 0.5, 0.08);
+      const signMat = new THREE.MeshStandardMaterial({
+        color: sc,
+        emissive: sc,
+        emissiveIntensity: 0.8,
+        roughness: 0.3,
+      });
+      const sign = new THREE.Mesh(signGeo, signMat);
+      sign.position.set(0, h * 0.5, side > 0 ? -w / 2 - 0.05 : d / 2 + 0.05);
+      if (side > 0) sign.rotation.y = Math.PI / 2;
+      group.add(sign);
+
+      // Neon glow light
+      const neonLight = new THREE.PointLight(sc, 0.3, 6, 2);
+      neonLight.position.copy(sign.position);
+      neonLight.position.z += side > 0 ? -0.5 : 0.5;
+      group.add(neonLight);
+    }
+
+    // Awning (on short buildings)
+    if (h < 7 && Math.random() > 0.5) {
+      const awnColors = [0xcc2222, 0x2244aa, 0x228844, 0xaa7722];
+      const awnGeo = new THREE.BoxGeometry(w * 0.9, 0.08, 1.2);
+      const awnMat = Renderer.getMat('#' + awnColors[Math.floor(Math.random() * 4)].toString(16).padStart(6, '0'));
+      const awn = new THREE.Mesh(awnGeo, awnMat);
+      awn.position.set(0, 2.2, side > 0 ? -w / 2 - 0.6 : d / 2 + 0.6);
+      awn.castShadow = true;
+      group.add(awn);
+    }
+
+    group.position.set(x, 0, z);
+    Renderer.scene.add(group);
+    return { group, z: z, baseZ: z };
   },
 
   update(speed) {
-    for(let b of this.list) b.z-=speed;
-    for(let s of this.streetItems) s.z-=speed;
-    this.list=this.list.filter(b=>b.z>CONFIG.DESPAWN_Z);
-    this.streetItems=this.streetItems.filter(s=>s.z>CONFIG.DESPAWN_Z);
-    while(this.list.length<45){const f=Math.max(...this.list.map(b=>b.z),CONFIG.PLAYER_Z);this.list.push(this.mkB(f+3+Math.random()*5));}
-    while(this.streetItems.length<25){const f=Math.max(...this.streetItems.map(s=>s.z),CONFIG.PLAYER_Z);this.streetItems.push(this.mkS(f+5+Math.random()*8));}
-  },
-
-  draw() {
-    const ctx=Renderer.ctx;
-    const sorted=[...this.list].sort((a,b)=>b.z-a.z);
-    for(const b of sorted){
-      if(b.z<1||b.z>250) continue;
-      const fog=Renderer.fogAt(b.z); if(fog>0.93) continue;
-      const p=Renderer.project(b.side*b.offset,b.z,0);
-      if(!p||p.scale<0.008) continue;
-      const bw=Renderer.worldToPixels(b.w,b.z), bh=Renderer.worldToPixels(b.h,b.z);
-      if(bw<3||bh<4) continue;
-      const bx=p.x-bw/2, by=p.y-bh, alpha=1-fog;
-
-      ctx.fillStyle=Renderer.fogColor(b.cols.main,b.z);
-      ctx.fillRect(bx,by,bw,bh);
-      // Trim
-      ctx.fillStyle=Renderer.fogColor(b.cols.trim,b.z);
-      ctx.fillRect(bx,by,bw,Math.max(1,bh*0.04));
-      // Windows
-      if(bw>6&&bh>8){
-        const px=bw*0.08,py=bh*0.08;
-        const ww=Math.max(1.5,(bw-px*2)/b.winC-1.5), wh=Math.max(1.5,Math.min(ww*1.3,(bh-py*2)/b.winR-1.5));
-        for(let r=0;r<b.winR;r++) for(let c=0;c<b.winC;c++){
-          ctx.fillStyle=Math.random()>0.35?`rgba(255,${150+Math.random()*80},${40+Math.random()*60},${alpha*0.55})`:`rgba(20,25,40,${alpha*0.45})`;
-          ctx.fillRect(bx+px+c*(ww+1.5),by+py+r*(wh+1.5),ww,wh);
-        }
-      }
-      // Awning
-      if(b.hasAwning&&alpha>0.3){
-        ctx.fillStyle=`rgba(${this.htr(b.awnCol)},${alpha*0.65})`;
-        ctx.beginPath();ctx.moveTo(bx-2,p.y-bh*0.12);ctx.lineTo(bx+bw+2,p.y-bh*0.12);
-        ctx.lineTo(bx+bw+bw*0.12,p.y-bh*0.04);ctx.lineTo(bx-bw*0.12,p.y-bh*0.04);ctx.closePath();ctx.fill();
-      }
-      // Neon sign
-      if(b.hasSign&&bw>10&&alpha>0.3){
-        const sy=by+bh*0.2, sh=Math.max(5,bh*0.07);
-        ctx.shadowColor=b.signCol; ctx.shadowBlur=6*alpha;
-        ctx.fillStyle=b.signCol; ctx.globalAlpha=alpha*0.8;
-        ctx.fillRect(bx+bw*0.1,sy,bw*0.8,sh);
-        ctx.shadowBlur=0; ctx.globalAlpha=alpha;
-        if(sh>4){ctx.fillStyle=`rgba(255,255,255,${alpha*0.85})`;
-        ctx.font=`bold ${Math.max(4,sh*0.65)}px Rubik`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(b.signTxt,bx+bw/2,sy+sh/2);}
-        ctx.globalAlpha=1;
-      }
-    }
-    // Street items
-    for(const s of this.streetItems){
-      if(s.z<2||s.z>120) continue;
-      const fog=Renderer.fogAt(s.z); if(fog>0.8) continue;
-      const p=Renderer.project(s.side*s.offset,s.z,0);
-      if(!p||p.scale<0.02) continue;
-      const a=1-fog, sz=Renderer.worldToPixels(1,s.z);
-      if(s.type==='lamp'){
-        ctx.fillStyle=`rgba(60,60,60,${a})`;ctx.fillRect(p.x-1,p.y-sz*2.8,2,sz*2.8);
-        ctx.fillStyle=`rgba(255,220,100,${a*0.75})`;ctx.beginPath();ctx.arc(p.x,p.y-sz*2.8,sz*0.35,0,6.28);ctx.fill();
-        ctx.fillStyle=`rgba(255,220,100,${a*0.04})`;ctx.beginPath();ctx.moveTo(p.x-sz*0.3,p.y-sz*2.8);ctx.lineTo(p.x-sz*1.2,p.y);ctx.lineTo(p.x+sz*1.2,p.y);ctx.lineTo(p.x+sz*0.3,p.y-sz*2.8);ctx.closePath();ctx.fill();
-      } else {
-        ctx.fillStyle=`rgba(50,55,50,${a})`;ctx.fillRect(p.x-sz*0.25,p.y-sz*0.5,sz*0.5,sz*0.5);
+    for (const b of this.list) {
+      b.group.position.z += speed;
+      if (b.group.position.z > CONFIG.DESPAWN_Z + 20) {
+        b.group.position.z -= CONFIG.ROAD_LENGTH;
       }
     }
   },
-  htr(h){const c=parseInt(h.replace('#',''),16);return`${c>>16},${(c>>8)&0xff},${c&0xff}`;},
 };

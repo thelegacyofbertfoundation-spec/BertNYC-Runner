@@ -1,44 +1,111 @@
 // =============================================
-// BERT RUNNER NYC - Particles v5
+// BERT RUNNER NYC - 3D Particles
 // =============================================
 const Particles = {
-  list: [],
-  init() { this.list=[]; },
-  spawnTrail(x,y,color) {
-    this.list.push({x:x+(Math.random()-0.5)*3,y,type:'trail',
-      vx:(Math.random()-0.5)*1,vy:Math.random()*1.5+0.5,
-      size:Math.random()*2.5+1.5,life:10+Math.random()*5,maxLife:15,color,rot:0});
+  points: null,
+  particles: [],
+  MAX: 200,
+  geo: null,
+  positions: null,
+  colors: null,
+  sizes: null,
+
+  init() {
+    if (this.points) Renderer.scene.remove(this.points);
+    this.particles = [];
+
+    this.geo = new THREE.BufferGeometry();
+    this.positions = new Float32Array(this.MAX * 3);
+    this.colors = new Float32Array(this.MAX * 3);
+    this.sizes = new Float32Array(this.MAX);
+
+    this.geo.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
+    this.geo.setAttribute('color', new THREE.BufferAttribute(this.colors, 3));
+    this.geo.setAttribute('size', new THREE.BufferAttribute(this.sizes, 1));
+
+    const mat = new THREE.PointsMaterial({
+      size: 0.15,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.8,
+      sizeAttenuation: true,
+    });
+
+    this.points = new THREE.Points(this.geo, mat);
+    Renderer.scene.add(this.points);
   },
-  spawn(x,y,color,count) {
-    for(let i=0;i<count;i++){
-      const type=Math.random()>0.6?'sparkle':'circle';
-      this.list.push({x,y,type,vx:(Math.random()-0.5)*7,vy:(Math.random()-0.5)*7-2,
-        size:type==='sparkle'?Math.random()*2+0.8:Math.random()*3.5+1.5,
-        life:18+Math.random()*12,maxLife:30,color,rot:Math.random()*6.28});
+
+  burst(x, y, z, color) {
+    const c = new THREE.Color(color);
+    for (let i = 0; i < 12; i++) {
+      this.particles.push({
+        x, y, z,
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: Math.random() * 0.12 + 0.02,
+        vz: (Math.random() - 0.5) * 0.15,
+        life: 25 + Math.random() * 15,
+        maxLife: 40,
+        r: c.r, g: c.g, b: c.b,
+      });
+    }
+    if (this.particles.length > this.MAX) {
+      this.particles = this.particles.slice(-this.MAX);
     }
   },
-  update() {
-    for(const p of this.list){p.x+=p.vx;p.y+=p.vy;if(p.type!=='trail')p.vy+=0.12;p.vx*=0.97;p.size*=p.type==='trail'?0.94:0.98;p.life--;p.rot+=0.1;}
-    this.list=this.list.filter(p=>p.life>0&&p.size>0.3);
-    if(this.list.length>150) this.list=this.list.slice(-150);
+
+  // Trail behind player
+  spawnTrail(x, y, z, color) {
+    const c = new THREE.Color(color);
+    this.particles.push({
+      x: x + (Math.random() - 0.5) * 0.3,
+      y: y + Math.random() * 0.2,
+      z: z + 0.5,
+      vx: (Math.random() - 0.5) * 0.02,
+      vy: Math.random() * 0.03,
+      vz: 0.02 + Math.random() * 0.02,
+      life: 12 + Math.random() * 6,
+      maxLife: 18,
+      r: c.r, g: c.g, b: c.b,
+    });
+    if (this.particles.length > this.MAX) {
+      this.particles = this.particles.slice(-this.MAX);
+    }
   },
-  draw() {
-    const ctx=Renderer.ctx;
-    for(const p of this.list){
-      const t=Math.max(0,p.life/p.maxLife);
-      ctx.globalAlpha=t;
-      if(p.type==='sparkle'){
-        ctx.fillStyle='#fff';ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);
-        ctx.beginPath();
-        for(let i=0;i<4;i++){const a=(i/4)*6.28;ctx.lineTo(Math.cos(a)*p.size*2,Math.sin(a)*p.size*2);const a2=a+6.28/8;ctx.lineTo(Math.cos(a2)*p.size*0.4,Math.sin(a2)*p.size*0.4);}
-        ctx.closePath();ctx.fill();ctx.restore();
-      } else if(p.type==='trail'){
-        ctx.fillStyle=p.color;ctx.globalAlpha=t*0.35;
-        ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,6.28);ctx.fill();
+
+  // Compatibility alias
+  spawn(x, y, color, count) {
+    this.burst(x || 0, y || 1, 0, typeof color === 'string' ? parseInt(color.replace('#', ''), 16) : (color || 0xffffff));
+  },
+
+  update() {
+    for (const p of this.particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.z += p.vz;
+      p.vy -= 0.002; // gravity
+      p.life--;
+    }
+    this.particles = this.particles.filter(p => p.life > 0);
+
+    // Update buffer
+    for (let i = 0; i < this.MAX; i++) {
+      const p = this.particles[i];
+      if (p) {
+        const t = p.life / p.maxLife;
+        this.positions[i * 3] = p.x;
+        this.positions[i * 3 + 1] = p.y;
+        this.positions[i * 3 + 2] = p.z;
+        this.colors[i * 3] = p.r * t;
+        this.colors[i * 3 + 1] = p.g * t;
+        this.colors[i * 3 + 2] = p.b * t;
+        this.sizes[i] = t * 0.2;
       } else {
-        ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,6.28);ctx.fill();
+        this.positions[i * 3 + 1] = -100; // hide
+        this.sizes[i] = 0;
       }
     }
-    ctx.globalAlpha=1;
+    this.geo.attributes.position.needsUpdate = true;
+    this.geo.attributes.color.needsUpdate = true;
+    this.geo.attributes.size.needsUpdate = true;
   },
 };

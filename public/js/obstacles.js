@@ -56,15 +56,15 @@ const Obstacles = {
 
     // Body
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, roughness: 0.35, metalness: 0.3 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 4.0), bodyMat);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 8.0), bodyMat);
     body.position.y = 0.55;
     body.castShadow = true; body.receiveShadow = true;
     g.add(body);
 
     // Cabin
     const cabinMat = new THREE.MeshStandardMaterial({ color: 0xffdd33, roughness: 0.3, metalness: 0.25 });
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 2.0), cabinMat);
-    cabin.position.set(0, 1.35, -0.2);
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 4.0), cabinMat);
+    cabin.position.set(0, 1.35, -0.5);
     cabin.castShadow = true;
     g.add(cabin);
 
@@ -75,19 +75,19 @@ const Obstacles = {
     // Front windshield
     const fwGeo = new THREE.PlaneGeometry(1.3, 0.55);
     const fw = new THREE.Mesh(fwGeo, glassMat);
-    fw.position.set(0, 1.35, -1.21);
+    fw.position.set(0, 1.35, -2.51);
     fw.rotation.x = 0.15;
     g.add(fw);
     // Rear windshield
     const rw = new THREE.Mesh(fwGeo, glassMat);
-    rw.position.set(0, 1.35, 0.81);
+    rw.position.set(0, 1.35, 1.51);
     rw.rotation.x = -0.15; rw.rotation.y = Math.PI;
     g.add(rw);
     // Side windows
-    const swGeo = new THREE.PlaneGeometry(1.6, 0.5);
+    const swGeo = new THREE.PlaneGeometry(3.5, 0.5);
     for (const side of [-1, 1]) {
       const sw = new THREE.Mesh(swGeo, glassMat);
-      sw.position.set(side * 0.76, 1.35, -0.2);
+      sw.position.set(side * 0.76, 1.35, -0.5);
       sw.rotation.y = side * Math.PI / 2;
       g.add(sw);
     }
@@ -98,7 +98,7 @@ const Obstacles = {
     });
     for (const side of [-1, 1]) {
       const hl = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), hlMat);
-      hl.position.set(side * 0.7, 0.55, -2.02);
+      hl.position.set(side * 0.7, 0.55, -4.02);
       g.add(hl);
     }
 
@@ -108,7 +108,7 @@ const Obstacles = {
     });
     for (const side of [-1, 1]) {
       const tl = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.15, 0.05), tlMat);
-      tl.position.set(side * 0.7, 0.55, 2.02);
+      tl.position.set(side * 0.7, 0.55, 4.02);
       g.add(tl);
     }
 
@@ -117,20 +117,20 @@ const Obstacles = {
       color: 0xffee88, emissive: 0xffdd44, emissiveIntensity: 0.5, roughness: 0.3,
     });
     const sign = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.25), signMat);
-    sign.position.set(0, 1.8, -0.2);
+    sign.position.set(0, 1.8, -0.5);
     g.add(sign);
 
     // Bumpers (chrome)
     const chromeMat = Renderer.getMat('#cccccc', { metalness: 0.8, roughness: 0.2 });
     const fbump = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.15, 0.12), chromeMat);
-    fbump.position.set(0, 0.18, -2.05);
+    fbump.position.set(0, 0.18, -4.05);
     g.add(fbump);
     const rbump = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.15, 0.12), chromeMat);
-    rbump.position.set(0, 0.18, 2.05);
+    rbump.position.set(0, 0.18, 4.05);
     g.add(rbump);
 
     // Wheels
-    this.addWheels(g, 1.8, 4.0);
+    this.addWheels(g, 1.8, 8.0);
 
     return g;
   },
@@ -141,7 +141,7 @@ const Obstacles = {
 
     // Body
     const busMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.5, metalness: 0.2 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 7.0), busMat);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.2, 12.0), busMat);
     body.position.y = 1.3;
     body.castShadow = true; body.receiveShadow = true;
     g.add(body);
@@ -149,16 +149,16 @@ const Obstacles = {
     // Blue stripe
     const stripeMat = new THREE.MeshStandardMaterial({ color: 0x2244aa, roughness: 0.5 });
     for (const side of [-1, 1]) {
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.5, 7.02), stripeMat);
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.5, 12.02), stripeMat);
       stripe.position.set(side * 1.11, 1.3, 0);
       g.add(stripe);
     }
     // Front/back stripe
     const fstripe = new THREE.Mesh(new THREE.BoxGeometry(2.22, 0.5, 0.02), stripeMat);
-    fstripe.position.set(0, 1.3, -3.51);
+    fstripe.position.set(0, 1.3, -6.01);
     g.add(fstripe);
     const bstripe = new THREE.Mesh(new THREE.BoxGeometry(2.22, 0.5, 0.02), stripeMat);
-    bstripe.position.set(0, 1.3, 3.51);
+    bstripe.position.set(0, 1.3, 6.01);
     g.add(bstripe);
 
     // Windows
@@ -166,9 +166,9 @@ const Obstacles = {
       color: 0x1a2a4a, roughness: 0.1, metalness: 0.5, transparent: true, opacity: 0.8,
     });
     for (const side of [-1, 1]) {
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 8; i++) {
         const win = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.7), glassMat);
-        win.position.set(side * 1.11, 1.8, -2.5 + i * 1.3);
+        win.position.set(side * 1.11, 1.8, -4.5 + i * 1.25);
         win.rotation.y = side * Math.PI / 2;
         g.add(win);
       }
@@ -179,7 +179,7 @@ const Obstacles = {
       color: 0xff8800, emissive: 0xff6600, emissiveIntensity: 0.6, roughness: 0.3,
     });
     const dest = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.3, 0.06), destMat);
-    dest.position.set(0, 2.35, -3.52);
+    dest.position.set(0, 2.35, -6.02);
     g.add(dest);
 
     // Taillights
@@ -188,11 +188,11 @@ const Obstacles = {
     });
     for (const side of [-1, 1]) {
       const tl = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 0.05), tlMat);
-      tl.position.set(side * 0.8, 0.6, 3.53);
+      tl.position.set(side * 0.8, 0.6, 6.03);
       g.add(tl);
     }
 
-    this.addWheels(g, 2.2, 7.0);
+    this.addWheels(g, 2.2, 12.0);
 
     return g;
   },
@@ -214,7 +214,7 @@ const Obstacles = {
     const barMat = new THREE.MeshStandardMaterial({
       color: 0xff6600, emissive: 0x331100, emissiveIntensity: 0.2, roughness: 0.6,
     });
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.35, 0.15), barMat);
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.35, 1.5), barMat);
     bar.position.y = 0.55;
     bar.castShadow = true;
     g.add(bar);
@@ -222,7 +222,7 @@ const Obstacles = {
     // White stripes (alternating planes on the bar)
     const whiteMat = Renderer.getMat('#ffffff');
     for (let i = 0; i < 6; i += 2) {
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.36, 0.16), whiteMat);
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.36, 1.52), whiteMat);
       stripe.position.set(-1.0 + i * 0.4, 0.55, 0);
       g.add(stripe);
     }
@@ -279,14 +279,14 @@ const Obstacles = {
 
     // Cart body
     const cartMat = new THREE.MeshStandardMaterial({ color: 0xcc3333, roughness: 0.5 });
-    const cart = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 2.0), cartMat);
+    const cart = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 4.5), cartMat);
     cart.position.y = 0.7;
     cart.castShadow = true;
     g.add(cart);
 
     // Metal top
     const metalMat = Renderer.getMat('#888888', { metalness: 0.5 });
-    const top = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 2.1), metalMat);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.05, 4.6), metalMat);
     top.position.y = 1.17;
     g.add(top);
 
@@ -356,11 +356,13 @@ const Obstacles = {
       const ox = o.group.position.x;
       // Check Z proximity
       if (Math.abs(oz - pi.z) > o.d / 2 + pi.r) continue;
-      // Check X proximity
-      if (Math.abs(ox - pi.x) > o.w / 2 + pi.r * 0.6) continue;
-      // Check if jumped over
-      if (o.jumpable && pi.jumpH > 0.12) continue;
-      if (!o.jumpable && pi.jumpH > o.h * 0.7 / 6) continue; // scale to world
+      // Check X proximity  
+      if (Math.abs(ox - pi.x) > o.w / 2 + pi.r * 0.5) continue;
+      // Jumpable obstacles: player clears if airborne above obstacle height
+      const worldJumpY = pi.jumpH * 6;
+      if (o.jumpable && worldJumpY > o.h * 0.85) continue;
+      // Non-jumpable (buses): need extreme height
+      if (!o.jumpable && worldJumpY > o.h * 1.1) continue;
       return o;
     }
     return null;

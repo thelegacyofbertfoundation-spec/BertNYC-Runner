@@ -145,8 +145,10 @@ const Player = {
     }
 
     if (this.isJumping) {
+      // Float at apex — reduced gravity when near peak
+      const grav = Math.abs(this.vy) < 0.025 ? CONFIG.FLOAT_GRAVITY : CONFIG.GRAVITY;
       this.jumpH += this.vy;
-      this.vy -= CONFIG.GRAVITY;
+      this.vy -= grav;
       if (this.jumpH <= 0) {
         this.jumpH = 0;
         this.vy = 0;

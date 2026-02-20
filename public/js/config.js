@@ -5,34 +5,35 @@ const CONFIG = {
   MAX_ENERGY: 5,
   ENERGY_REGEN_MS: 20 * 60 * 1000,
 
-  INITIAL_SPEED: 0.15,
-  MAX_SPEED: 0.6,
-  SPEED_INCREMENT: 0.000025,
+  INITIAL_SPEED: 0.30,
+  MAX_SPEED: 1.0,
+  SPEED_INCREMENT: 0.00005,
 
-  GRAVITY: 0.008,
-  JUMP_FORCE: 0.18,
+  GRAVITY: 0.012,
+  JUMP_FORCE: 0.08,
+  FLOAT_GRAVITY: 0.003,    // Reduced gravity near apex for floaty feel
 
-  LANE_WIDTH: 2.5,        // X distance between lanes
-  PLAYER_Z: 0,            // Player stays at Z=0
-  SPAWN_Z: -120,          // Obstacles spawn far away
-  DESPAWN_Z: 10,           // Remove after passing camera
-  ROAD_LENGTH: 160,
-  ROAD_WIDTH: 9,
+  LANE_WIDTH: 2.0,         // Narrower so 3 lanes fit clearly
+  PLAYER_Z: 0,
+  SPAWN_Z: -140,
+  DESPAWN_Z: 12,
+  ROAD_LENGTH: 180,
+  ROAD_WIDTH: 8,
   SIDEWALK_WIDTH: 3,
 
-  OBSTACLE_MIN_GAP: 18,
-  OBSTACLE_MAX_GAP: 40,
+  OBSTACLE_MIN_GAP: 22,
+  OBSTACLE_MAX_GAP: 45,
   COIN_GROUP_SIZE: 5,
   COIN_GAP: 3,
 
   OBSTACLES: [
-    { type:'taxi', w:1.8, h:1.2, d:4.0, jumpable:false },
-    { type:'taxi', w:1.8, h:1.2, d:4.0, jumpable:false },
-    { type:'taxi', w:1.8, h:1.2, d:4.0, jumpable:false },
-    { type:'bus',  w:2.2, h:2.5, d:7.0, jumpable:false },
-    { type:'barrier', w:2.4, h:0.8, d:0.6, jumpable:true },
+    { type:'taxi', w:1.8, h:1.2, d:8.0, jumpable:true },
+    { type:'taxi', w:1.8, h:1.2, d:8.0, jumpable:true },
+    { type:'taxi', w:1.8, h:1.2, d:8.0, jumpable:true },
+    { type:'bus',  w:2.2, h:2.5, d:12.0, jumpable:false },
+    { type:'barrier', w:2.2, h:0.7, d:1.5, jumpable:true },
     { type:'cone', w:0.5, h:0.7, d:0.5, jumpable:true },
-    { type:'hotdog', w:1.6, h:1.5, d:2.5, jumpable:false },
+    { type:'hotdog', w:1.6, h:1.4, d:5.0, jumpable:true },
   ],
 
   SKINS: [
